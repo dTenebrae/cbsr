@@ -19,9 +19,7 @@ NIST_START = 'pubStartDate'
 NIST_END = 'pubEndDate'
 
 DAYS_TO_CHECK = 10
-
-date1 = '2023-03-01T00:00:00.000-05:00'
-date2 = '2023-03-02T23:59:59.999-05:00'
+NUMBER_OF_RECON = 5
 
 HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,'
@@ -35,12 +33,12 @@ HEADERS = {
 
 
 def get_respone(*args, **kwargs) -> BeautifulSoup:
-    while True:
+    recon_count = 0
+    while recon_count <= NUMBER_OF_RECON:
         try:
             response: requests.Response = requests.get(*args, **kwargs)
             # проверим код ответа
             if response.status_code != requests.codes.ok:
-                print(response.status_code)
                 raise ConnectionError
             sleep(0.1)
             return BeautifulSoup(response.text, 'lxml')
@@ -48,6 +46,7 @@ def get_respone(*args, **kwargs) -> BeautifulSoup:
             # Стучимся пока не соединимся.
             print(f'Ошибка соединения {CE}')
             sleep(0.250)
+            recon_count += 1
 
 
 def get_dates(days_num=1):
@@ -105,14 +104,22 @@ def get_single_cve(cve: str) -> dict:
 
 
 def get_patches(url: str) -> dict:
+    """
+    Парсим патч по ссылке, в случае, если ссылка формата
+    https://github.com/torvalds/linux/commit/**commit**
+    """
     netloc = parse.urlparse(url).netloc
     path = parse.urlparse(url).path
     if not (netloc == 'github.com' and path.split('/')[1] == 'torvalds'):
         return {}
 
+    # Получим response
     new_url = f'{url}.patch'
     patch_resp = get_respone(new_url, headers=HEADERS).find('p')
-    patch_txt = patch_resp.text if patch_resp else None
+    # sanity check
+    if not patch_resp:
+        return {}
+    patch_txt = patch_resp.text
 
     date_re = re.compile(r"Date:\s(.+)")
     fixes_re = re.compile(r"Fixes:\s([a-z0-9]+)")
@@ -130,8 +137,15 @@ def get_patches(url: str) -> dict:
 
 
 def get_current_cves(date_from: str, date_to: str) -> list:
+    """
+    Соберем все cve между датами.
+    Формат даты:
+    date1 = '2023-03-01T00:00:00.000-05:00'
+    date2 = '2023-03-02T23:59:59.999-05:00'
+    """
     cve_list = []
 
+    # Получим response
     params = {
         NIST_REJ: None,
         NIST_START: date_from,
@@ -140,17 +154,19 @@ def get_current_cves(date_from: str, date_to: str) -> list:
     url = prepare_url(NIST_API_URL, params)
     nist_resp = requests.get(url)
 
+    # sanity checks
     if nist_resp.status_code != requests.codes.ok:
         print("ошибка")
-        return cve_list
+        return []
     nist_json = nist_resp.json()
     if not nist_json.get('vulnerabilities', ""):
-        return cve_list
+        return []
 
     total_res = nist_json['totalResults']
     print(f'Total CVE found: {total_res}')
     for cve in nist_json.get('vulnerabilities'):
         desc = cve['cve']['descriptions'][0]['value']
+        # TODO сделать для всех видов пакетов
         if 'linux kernel' not in desc.lower():
             continue
         result = {
@@ -172,21 +188,21 @@ def get_current_cves(date_from: str, date_to: str) -> list:
 
 
 if __name__ == '__main__':
-    print(f"Checking CVE's for last: {DAYS_TO_CHECK} days")
-    cves = get_current_cves(*get_dates(days_num=DAYS_TO_CHECK))
+    print(f"Checking CVE's for last: {DAYS_TO_CHECK} day(s)")
+    kernel_cves = get_current_cves(*get_dates(days_num=DAYS_TO_CHECK))
     patches_found = 0
-    for item in cves:
+    for cve in kernel_cves:
         is_patch_found = False
-        sys.stdout.write("\r" + item['id'])
+        sys.stdout.write("\r" + cve['id'])
         sys.stdout.flush()
-        for link in item['links']:
+        for link in cve['links']:
             patch_data = get_patches(link)
             if not patch_data:
                 continue
             is_patch_found = True
-            with open(f"./patches/{item['id']}.patch", "w") as f:
+            with open(f"./patches/{cve['id']}.patch", "w") as f:
                 f.write(patch_data.pop('patch'))
-            with open(f"./patches/{item['id']}_meta.json", 'w') as f:
+            with open(f"./patches/{cve['id']}_meta.json", 'w') as f:
                 json.dump(patch_data, f)
         if is_patch_found:
             patches_found += 1
