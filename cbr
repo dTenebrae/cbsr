@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+
+import requests
+import urllib3
+from datetime import timedelta, date
+import urllib.parse as parse
+from time import sleep
+from bs4 import BeautifulSoup
+import re
+import json
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+NIST_API_URL = 'https://services.nvd.nist.gov/rest/json/cves/2.0'
+NIST_CVE = 'cveId'
+NIST_REJ = 'noRejected'
+NIST_START = 'pubStartDate'
+NIST_END = 'pubEndDate'
+
+date1 = '2023-03-01T00:00:00.000-05:00'
+date2 = '2023-03-02T23:59:59.999-05:00'
+
+HEADERS = {
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,'
+              'application/signed-exchange;v=b3;q=0.9',
+    'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                  'Chrome/102.0.5005.167 Safari/537.36',
+}
+
+
+def get_respone(*args, **kwargs) -> BeautifulSoup:
+    while True:
+        try:
+            response: requests.Response = requests.get(*args, **kwargs)
+            # проверим код ответа
+            if response.status_code != requests.codes.ok:
+                print(response.status_code)
+                raise ConnectionError
+            sleep(0.1)
+            return BeautifulSoup(response.text, 'lxml')
+        except ConnectionError as CE:
+            # Стучимся пока не соединимся.
+            print(f'Ошибка соединения {CE}')
+            sleep(0.250)
+
+
+def get_dates(days_num=1):
+    to_date = f'{date.today().strftime("%Y-%m-%d")}T23:59:59.999-05:00'
+    from_date = f'{(date.today() - timedelta(days=days_num)).strftime("%Y-%m-%d")}T00:00:00.000-05:00'
+    return from_date, to_date
+
+
+def prepare_url(url, queries: dict) -> str:
+    url += '?'
+    for k, v in queries.items():
+        url += f'{k}={v}' if v else k
+        url += '&'
+    return url[:-1]
+
+
+def process_urls(urls: list) -> list:
+    result = []
+    for link in urls:
+        netloc = parse.urlparse(link).netloc
+        path = parse.urlparse(link).path
+        if netloc == 'git.kernel.org' or (netloc == 'github.com' and path.split('/')[1] == 'torvalds'):
+            result.append(f'https://github.com/torvalds/linux/commit/{link.split("/")[-1].split("=")[-1]}')
+        else:
+            result.append(link)
+
+    result = list(set(result))
+    return result
+
+
+def get_single_cve(cve: str) -> dict:
+    result = {}
+    params = {NIST_CVE: cve}
+    url = prepare_url(NIST_API_URL, params)
+    nist_resp = requests.get(url)
+
+    if nist_resp.status_code != requests.codes.ok:
+        print("ошибка")
+        return result
+    nist_json = nist_resp.json()
+    if not nist_json.get('vulnerabilities', ""):
+        return result
+
+    print("успешно")
+    result = {'description': nist_json['vulnerabilities'][0]['cve']['descriptions'][0]['value'],
+              'published': nist_json['vulnerabilities'][0]['cve']['published'],
+              'lastModified': nist_json['vulnerabilities'][0]['cve']['lastModified'],
+              'links': [item['url'] for item in
+                        nist_json['vulnerabilities'][0]['cve']['references']], 'scores': {
+            nist_json['vulnerabilities'][0]['cve']['metrics'][key][0]['cvssData']['version']:
+                nist_json['vulnerabilities'][0]['cve']['metrics'][key][0]['cvssData']['baseScore']
+            for key in nist_json['vulnerabilities'][0]['cve']['metrics'].keys()
+        }, 'patches': []}
+    return result
+
+
+def get_patches(url: str) -> dict:
+    netloc = parse.urlparse(url).netloc
+    path = parse.urlparse(url).path
+    if not (netloc == 'github.com' and path.split('/')[1] == 'torvalds'):
+        return {}
+
+    new_url = f'{url}.patch'
+    patch_resp = get_respone(new_url, headers=HEADERS).find('p')
+    patch_txt = patch_resp.text if patch_resp else None
+
+    date_re = re.compile(r"Date:\s(.+)")
+    fixes_re = re.compile(r"Fixes:\s([a-z0-9]+)")
+    subject_re = re.compile(r"Subject:\s(.+)")
+    files_raw = re.findall(r"(?<=---)[\S\s]*?(?=diff)", patch_txt)[0].strip().split('\n')
+
+    return {
+        'date': date_re.search(patch_txt).group(1) if date_re.search(patch_txt) else None,
+        'fixes': fixes_re.search(patch_txt).group(1) if fixes_re.search(patch_txt) else None,
+        'subject': subject_re.search(patch_txt).group(1) if subject_re.search(patch_txt) else None,
+        'files_changed': files_raw[-1],
+        'files': [file.split('|')[0].strip() for file in files_raw[:-1]],
+        'patch': patch_txt,
+    }
+
+
+def get_current_cves(date_from: str, date_to: str) -> list:
+    cve_list = []
+
+    params = {
+        NIST_REJ: None,
+        NIST_START: date_from,
+        NIST_END: date_to
+    }
+    url = prepare_url(NIST_API_URL, params)
+    nist_resp = requests.get(url)
+
+    if nist_resp.status_code != requests.codes.ok:
+        print("ошибка")
+        return cve_list
+    nist_json = nist_resp.json()
+    if not nist_json.get('vulnerabilities', ""):
+        return cve_list
+
+    total_res = nist_json['totalResults']
+    print(f'Total CVE found: {total_res}')
+    for cve in nist_json.get('vulnerabilities'):
+        desc = cve['cve']['descriptions'][0]['value']
+        if 'linux kernel' not in desc.lower():
+            continue
+        result = {
+            'id': cve['cve']['id'],
+            'description': desc,
+            'published': cve['cve']['published'],
+            'lastModified': cve['cve']['lastModified'],
+            'status': cve['cve']['vulnStatus'],
+            'links': [link['url'] for link in cve['cve']['references']],
+            'scores': {
+                cve['cve']['metrics'][key][0]['cvssData']['version']: cve['cve']['metrics'][key][0]['cvssData'][
+                    'baseScore'] for key in cve['cve']['metrics'].keys()
+            },
+        }
+        result['links'] = process_urls(result['links'])
+        cve_list.append(result)
+    print(f"Kernel CVE: {len(cve_list)}")
+    return cve_list
+
+
+if __name__ == '__main__':
+    cves = get_current_cves(*get_dates(days_num=10))
+    patches_found = 0
+    for item in cves:
+        is_patch_found = False
+        print(item['id'])
+        for link in item['links']:
+            patch_data = get_patches(link)
+            if not patch_data:
+                continue
+            is_patch_found = True
+            with open(f"./patches/{item['id']}.patch", "w") as f:
+                f.write(patch_data.pop('patch'))
+            with open(f"./patches/{item['id']}_meta.json", 'w') as f:
+                json.dump(patch_data, f)
+        if is_patch_found:
+            patches_found += 1
+    print(f"Patches found: {patches_found}")
