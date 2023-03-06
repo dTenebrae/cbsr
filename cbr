@@ -37,210 +37,189 @@ HEADERS = {
 }
 
 
-def get_respone(*args, **kwargs) -> BeautifulSoup:
-    recon_count = 0
-    while recon_count <= NUMBER_OF_RECON:
+class CveChecker:
+    @staticmethod
+    def redmine_auth():
+        """
+        Простой wrapper для авторизации
+        """
+        redmine = Redmine('http://10.81.0.88',
+                          username=config['USER'],
+                          password=config['PASSWORD'])
         try:
-            response: requests.Response = requests.get(*args, **kwargs)
-            # проверим код ответа
-            if response.status_code != requests.codes.ok:
-                raise ConnectionError
-            sleep(0.1)
-            return BeautifulSoup(response.text, 'lxml')
-        except ConnectionError as CE:
-            # Стучимся пока не соединимся.
-            print(f'Ошибка соединения {CE}')
-            sleep(0.250)
-            recon_count += 1
+            redmine.auth()
+            return redmine
+        except redminelib.exceptions.AuthError:
+            print("Auth Failed")
+            return None
 
-
-def redmine_auth():
-    """
-    Простой wrapper для авторизации
-    """
-    redmine = Redmine('http://10.81.0.88',
-                      username=config['USER'],
-                      password=config['PASSWORD'])
-    try:
-        redmine.auth()
-        return redmine
-    except redminelib.exceptions.AuthError:
-        print("Auth Failed")
-        return None
-
-
-def is_exists_on_redmine(cve: str) -> bool:
-    """
-    Описана ли CVE в трекере
-    """
-    redmine = redmine_auth()
-    if redmine:
+    def __init__(self, days_to_check, recon_num):
+        self.days_to_check = days_to_check
+        self.recon_num = recon_num
+        self.redmine = self.redmine_auth()
         # Проект Уязвимости проходит под номером 297
-        vuln_project = redmine.project.get(297)
-    else:
-        print("Проблема с аутентификацией на трекере. Есть ли дубликат - неизвестно")
-        return False
+        # vuln_project = redmine.project.get(297)
 
+    @staticmethod
+    def get_respone(*args, **kwargs) -> BeautifulSoup:
+        recon_count = 0
+        while recon_count <= NUMBER_OF_RECON:
+            try:
+                response: requests.Response = requests.get(*args, **kwargs)
+                # проверим код ответа
+                if response.status_code != requests.codes.ok:
+                    raise ConnectionError
+                sleep(0.1)
+                return BeautifulSoup(response.text, 'lxml')
+            except ConnectionError as CE:
+                # Стучимся пока не соединимся.
+                print(f'Ошибка соединения {CE}')
+                sleep(0.250)
+                recon_count += 1
 
-def get_dates(days_num=1):
-    to_date = f'{date.today().strftime("%Y-%m-%d")}T23:59:59.999-05:00'
-    from_date = f'{(date.today() - timedelta(days=days_num)).strftime("%Y-%m-%d")}T00:00:00.000-05:00'
-    return from_date, to_date
-
-
-def prepare_url(url, queries: dict) -> str:
-    url += '?'
-    for k, v in queries.items():
-        url += f'{k}={v}' if v else k
-        url += '&'
-    return url[:-1]
-
-
-def process_urls(urls: list) -> list:
-    result = []
-    for link in urls:
-        netloc = parse.urlparse(link).netloc
-        path = parse.urlparse(link).path
-        if netloc == 'git.kernel.org' or (netloc == 'github.com' and path.split('/')[1] == 'torvalds'):
-            result.append(f'https://github.com/torvalds/linux/commit/{link.split("/")[-1].split("=")[-1]}')
+    def is_exists_on_redmine(self, cve: str) -> bool:
+        """
+        Описана ли CVE в трекере
+        """
+        if self.redmine:
+            print(1)
         else:
-            result.append(link)
+            print("Проблема с аутентификацией на трекере. Есть ли дубликат - неизвестно")
+            return False
 
-    result = list(set(result))
-    return result
+    def get_dates(self):
+        to_date = f'{date.today().strftime("%Y-%m-%d")}T23:59:59.999-05:00'
+        from_date = f'{(date.today() - timedelta(days=self.days_to_check)).strftime("%Y-%m-%d")}T00:00:00.000-05:00'
+        return from_date, to_date
 
+    @staticmethod
+    def prepare_url(url, queries: dict) -> str:
+        url += '?'
+        for k, v in queries.items():
+            url += f'{k}={v}' if v else k
+            url += '&'
+        return url[:-1]
 
-# def get_single_cve(cve: str) -> dict:
-#     result = {}
-#     params = {NIST_CVE: cve}
-#     url = prepare_url(NIST_API_URL, params)
-#     nist_resp = requests.get(url)
-#
-#     if nist_resp.status_code != requests.codes.ok:
-#         print("ошибка")
-#         return result
-#     nist_json = nist_resp.json()
-#     if not nist_json.get('vulnerabilities', ""):
-#         return result
-#
-#     print("успешно")
-#     result = {'description': nist_json['vulnerabilities'][0]['cve']['descriptions'][0]['value'],
-#               'published': nist_json['vulnerabilities'][0]['cve']['published'],
-#               'lastModified': nist_json['vulnerabilities'][0]['cve']['lastModified'],
-#               'links': [item['url'] for item in
-#                         nist_json['vulnerabilities'][0]['cve']['references']], 'scores': {
-#             nist_json['vulnerabilities'][0]['cve']['metrics'][key][0]['cvssData']['version']:
-#                 nist_json['vulnerabilities'][0]['cve']['metrics'][key][0]['cvssData']['baseScore']
-#             for key in nist_json['vulnerabilities'][0]['cve']['metrics'].keys()
-#         }, 'patches': []}
-#     return result
+    @staticmethod
+    def process_urls(urls: list) -> list:
+        result = []
+        for link in urls:
+            netloc = parse.urlparse(link).netloc
+            path = parse.urlparse(link).path
+            if netloc == 'git.kernel.org' or (netloc == 'github.com' and path.split('/')[1] == 'torvalds'):
+                result.append(f'https://github.com/torvalds/linux/commit/{link.split("/")[-1].split("=")[-1]}')
+            else:
+                result.append(link)
 
+        result = list(set(result))
+        return result
 
-def get_patches(url: str) -> dict:
-    """
-    Парсим патч по ссылке, в случае, если ссылка формата
-    https://github.com/torvalds/linux/commit/**commit**
-    """
-    netloc = parse.urlparse(url).netloc
-    path = parse.urlparse(url).path
-    if not (netloc == 'github.com' and path.split('/')[1] == 'torvalds'):
-        return {}
+    def get_patches(self, url: str) -> dict:
+        """
+        Парсим патч по ссылке, в случае, если ссылка формата
+        https://github.com/torvalds/linux/commit/**commit**
+        """
+        netloc = parse.urlparse(url).netloc
+        path = parse.urlparse(url).path
+        if not (netloc == 'github.com' and path.split('/')[1] == 'torvalds'):
+            return {}
 
-    # Получим response
-    new_url = f'{url}.patch'
-    patch_resp = get_respone(new_url, headers=HEADERS).find('p')
-    # sanity check
-    if not patch_resp:
-        return {}
-    patch_txt = patch_resp.text
+        # Получим response
+        new_url = f'{url}.patch'
+        patch_resp = self.get_respone(new_url, headers=HEADERS).find('p')
+        # sanity check
+        if not patch_resp:
+            return {}
+        patch_txt = patch_resp.text
 
-    date_re = re.compile(r"Date:\s(.+)")
-    fixes_re = re.compile(r"Fixes:\s([a-z0-9]+)")
-    subject_re = re.compile(r"Subject:\s(.+)")
-    files_raw = re.findall(r"(?<=---)[\S\s]*?(?=diff)", patch_txt)[0].strip().split('\n')
+        date_re = re.compile(r"Date:\s(.+)")
+        fixes_re = re.compile(r"Fixes:\s([a-z0-9]+)")
+        subject_re = re.compile(r"Subject:\s(.+)")
+        files_raw = re.findall(r"(?<=---)[\S\s]*?(?=diff)", patch_txt)[0].strip().split('\n')
 
-    return {
-        'date': date_re.search(patch_txt).group(1) if date_re.search(patch_txt) else None,
-        'fixes': fixes_re.search(patch_txt).group(1) if fixes_re.search(patch_txt) else None,
-        'subject': subject_re.search(patch_txt).group(1) if subject_re.search(patch_txt) else None,
-        'files_changed': files_raw[-1],
-        'files': [file.split('|')[0].strip() for file in files_raw[:-1]],
-        'patch': patch_txt,
-    }
-
-
-def get_current_cves(date_from: str, date_to: str) -> list:
-    """
-    Соберем все cve между датами.
-    Формат даты:
-    date1 = '2023-03-01T00:00:00.000-05:00'
-    date2 = '2023-03-02T23:59:59.999-05:00'
-    """
-    cve_list = []
-
-    # Получим response
-    params = {
-        NIST_REJ: None,
-        NIST_START: date_from,
-        NIST_END: date_to
-    }
-    url = prepare_url(NIST_API_URL, params)
-    nist_resp = requests.get(url)
-
-    # sanity checks
-    if nist_resp.status_code != requests.codes.ok:
-        print("ошибка")
-        return []
-    nist_json = nist_resp.json()
-    if not nist_json.get('vulnerabilities', ""):
-        return []
-
-    total_res = nist_json['totalResults']
-    print(f'Total CVE found: {total_res}')
-    for cve in nist_json.get('vulnerabilities'):
-        desc = cve['cve']['descriptions'][0]['value']
-        # TODO сделать для всех видов пакетов
-        if 'linux kernel' not in desc.lower():
-            continue
-        result = {
-            'id': cve['cve']['id'],
-            'description': desc,
-            'published': cve['cve']['published'],
-            'lastModified': cve['cve']['lastModified'],
-            'status': cve['cve']['vulnStatus'],
-            'links': [link['url'] for link in cve['cve']['references']],
-            'scores': {
-                cve['cve']['metrics'][key][0]['cvssData']['version']: cve['cve']['metrics'][key][0]['cvssData'][
-                    'baseScore'] for key in cve['cve']['metrics'].keys()
-            },
+        return {
+            'date': date_re.search(patch_txt).group(1) if date_re.search(patch_txt) else None,
+            'fixes': fixes_re.search(patch_txt).group(1) if fixes_re.search(patch_txt) else None,
+            'subject': subject_re.search(patch_txt).group(1) if subject_re.search(patch_txt) else None,
+            'files_changed': files_raw[-1],
+            'files': [file.split('|')[0].strip() for file in files_raw[:-1]],
+            'patch': patch_txt,
         }
-        result['links'] = process_urls(result['links'])
-        cve_list.append(result)
-    print(f"Kernel CVE: {len(cve_list)}")
-    return cve_list
+
+    def get_current_cves(self, date_from: str, date_to: str) -> list:
+        """
+        Соберем все cve между датами.
+        Формат даты:
+        date1 = '2023-03-01T00:00:00.000-05:00'
+        date2 = '2023-03-02T23:59:59.999-05:00'
+        """
+        cve_list = []
+
+        # Получим response
+        params = {
+            NIST_REJ: None,
+            NIST_START: date_from,
+            NIST_END: date_to
+        }
+        url = self.prepare_url(NIST_API_URL, params)
+        nist_resp = requests.get(url)
+
+        # sanity checks
+        if nist_resp.status_code != requests.codes.ok:
+            print("ошибка")
+            return []
+        nist_json = nist_resp.json()
+        if not nist_json.get('vulnerabilities', ""):
+            return []
+
+        total_res = nist_json['totalResults']
+        print(f'Total CVE found: {total_res}')
+        for cve in nist_json.get('vulnerabilities'):
+            desc = cve['cve']['descriptions'][0]['value']
+            # TODO сделать для всех видов пакетов
+            if 'linux kernel' not in desc.lower():
+                continue
+            result = {
+                'id': cve['cve']['id'],
+                'description': desc,
+                'published': cve['cve']['published'],
+                'lastModified': cve['cve']['lastModified'],
+                'status': cve['cve']['vulnStatus'],
+                'links': [link['url'] for link in cve['cve']['references']],
+                'scores': {
+                    cve['cve']['metrics'][key][0]['cvssData']['version']: cve['cve']['metrics'][key][0]['cvssData'][
+                        'baseScore'] for key in cve['cve']['metrics'].keys()
+                },
+            }
+            result['links'] = self.process_urls(result['links'])
+            cve_list.append(result)
+        print(f"Kernel CVE: {len(cve_list)}")
+        return cve_list
+
+    def run(self):
+        kernel_cves = self.get_current_cves(*self.get_dates())
+        patches_found = 0
+        for cve in kernel_cves:
+            is_patch_found = False
+            sys.stdout.write("\r" + cve['id'])
+            sys.stdout.flush()
+            for link in cve['links']:
+                patch_data = self.get_patches(link)
+                if not patch_data:
+                    continue
+                is_patch_found = True
+                with open(f"./patches/{cve['id']}.patch", "w") as f:
+                    f.write(patch_data.pop('patch'))
+                with open(f"./patches/{cve['id']}_meta.json", 'w') as f:
+                    json.dump(patch_data, f)
+            if is_patch_found:
+                patches_found += 1
+        sys.stdout.write("\r" + ' ')
+        sys.stdout.flush()
+        print(f"\nPatches found: {patches_found}")
 
 
 if __name__ == '__main__':
-    # TODO Сделать авторизацию в редмайне один раз, чтобы не заходить при каждом запросе
-    is_exists_on_redmine('cve')
     print(f"Checking CVE's for last: {DAYS_TO_CHECK} day(s)")
-    kernel_cves = get_current_cves(*get_dates(days_num=DAYS_TO_CHECK))
-    patches_found = 0
-    for cve in kernel_cves:
-        is_patch_found = False
-        sys.stdout.write("\r" + cve['id'])
-        sys.stdout.flush()
-        for link in cve['links']:
-            patch_data = get_patches(link)
-            if not patch_data:
-                continue
-            is_patch_found = True
-            with open(f"./patches/{cve['id']}.patch", "w") as f:
-                f.write(patch_data.pop('patch'))
-            with open(f"./patches/{cve['id']}_meta.json", 'w') as f:
-                json.dump(patch_data, f)
-        if is_patch_found:
-            patches_found += 1
-    sys.stdout.write("\r")
-    sys.stdout.flush()
-    print(f"\nPatches found: {patches_found}")
+    cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON)
+    cve_checker.run()
