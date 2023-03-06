@@ -55,14 +55,14 @@ def get_respone(*args, **kwargs) -> BeautifulSoup:
 
 
 def redmine_auth():
+    """
+    Простой wrapper для авторизации
+    """
     redmine = Redmine('http://10.81.0.88',
                       username=config['USER'],
                       password=config['PASSWORD'])
     try:
         redmine.auth()
-        print('Auth Ok')
-        # Проект Уязвимости проходит под номером 297
-        # vuln_project = redmine.project.get(297)
         return redmine
     except redminelib.exceptions.AuthError:
         print("Auth Failed")
@@ -73,13 +73,13 @@ def is_exists_on_redmine(cve: str) -> bool:
     """
     Описана ли CVE в трекере
     """
-
     redmine = redmine_auth()
     if redmine:
-        pass
+        # Проект Уязвимости проходит под номером 297
+        vuln_project = redmine.project.get(297)
     else:
-        pass
-    return True
+        print("Проблема с аутентификацией на трекере. Есть ли дубликат - неизвестно")
+        return False
 
 
 def get_dates(days_num=1):
@@ -221,6 +221,7 @@ def get_current_cves(date_from: str, date_to: str) -> list:
 
 
 if __name__ == '__main__':
+    # TODO Сделать авторизацию в редмайне один раз, чтобы не заходить при каждом запросе
     is_exists_on_redmine('cve')
     print(f"Checking CVE's for last: {DAYS_TO_CHECK} day(s)")
     kernel_cves = get_current_cves(*get_dates(days_num=DAYS_TO_CHECK))
