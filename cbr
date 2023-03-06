@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-import requests
-import urllib3
-from datetime import timedelta, date
-import urllib.parse as parse
-from time import sleep
-from bs4 import BeautifulSoup
 import re
+import sys
 import json
+import urllib3
+import requests
+from time import sleep
+import urllib.parse as parse
+from bs4 import BeautifulSoup
+from datetime import timedelta, date
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -16,6 +17,8 @@ NIST_CVE = 'cveId'
 NIST_REJ = 'noRejected'
 NIST_START = 'pubStartDate'
 NIST_END = 'pubEndDate'
+
+DAYS_TO_CHECK = 10
 
 date1 = '2023-03-01T00:00:00.000-05:00'
 date2 = '2023-03-02T23:59:59.999-05:00'
@@ -169,11 +172,13 @@ def get_current_cves(date_from: str, date_to: str) -> list:
 
 
 if __name__ == '__main__':
-    cves = get_current_cves(*get_dates(days_num=10))
+    print(f"Checking CVE's for last: {DAYS_TO_CHECK} days")
+    cves = get_current_cves(*get_dates(days_num=DAYS_TO_CHECK))
     patches_found = 0
     for item in cves:
         is_patch_found = False
-        print(item['id'])
+        sys.stdout.write("\r" + item['id'])
+        sys.stdout.flush()
         for link in item['links']:
             patch_data = get_patches(link)
             if not patch_data:
@@ -185,4 +190,4 @@ if __name__ == '__main__':
                 json.dump(patch_data, f)
         if is_patch_found:
             patches_found += 1
-    print(f"Patches found: {patches_found}")
+    print(f"\nPatches found: {patches_found}")
