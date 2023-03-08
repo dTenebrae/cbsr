@@ -18,7 +18,7 @@ from datetime import timedelta, date
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-DAYS_TO_CHECK = 1
+DAYS_TO_CHECK = 3
 NUMBER_OF_RECON = 5
 
 OS72_TAG = "os72-updates"
@@ -33,6 +33,7 @@ NIST_END = "pubEndDate"
 
 # TODO поменять, так как привязано к моей машине
 KERNEL_PATH = "/home/tenebrae/devel/tracker/kernel/src"
+
 PATCHES_PATH = f"{os.getcwd()}/output/patches"
 ISSUES_PATH = f"{os.getcwd()}/output/issues"
 
@@ -93,7 +94,7 @@ class CveChecker:
         self.__prepare_dirs()
         self.kernel_72, self.kernel_73 = self.__get_kernel()
         self.kernel_72_path, self.kernel_73_path = f"{KERNEL_PATH}/linux-{self.kernel_72}", \
-                                                   f"{KERNEL_PATH}/linux-{self.kernel_73}"
+            f"{KERNEL_PATH}/linux-{self.kernel_73}"
         self.days_to_check = days_to_check
         self.recon_num = recon_num
         self.redmine = self.__redmine_auth()
@@ -186,7 +187,7 @@ class CveChecker:
             'subject': subject_re.search(patch_txt).group(1) if subject_re.search(patch_txt) else None,
             'files_changed': files_raw[-1],
             'files': [file.split('|')[0].strip() for file in files_raw[:-1]],
-            'patch': patch_txt,
+            'patch_text': patch_txt,
         }
 
     def get_current_cves(self, date_from: str, date_to: str) -> list:
@@ -251,51 +252,47 @@ class CveChecker:
         result += f"h5. Уязвимость {kernel_cve['id']}\n\n"
         result += f"Описание:\n"
         result += f"{kernel_cve['description']}\n\n"
-        result += f'Важность:\n'
-        for k, v in kernel_cve['scores'].items():
-            result += f"* *CVSS {k}: {v}*\n"
-        result += f"\nФайл:\n\n"
+        if kernel_cve['scores']:
+            result += f'Важность:\n'
+            for k, v in kernel_cve['scores'].items():
+                result += f"* *CVSS {k}: {v}*\n"
         if kernel_cve['patch']:
+            result += f'Данные патча:\n\n'
+            result += f"* Дата: {kernel_cve['patch']['date']}\n"
+            if kernel_cve['patch']['fixes']:
+                result += f"* Уязвимый коммит: https://github.com/torvalds/linux/commit/" \
+                          f"{kernel_cve['patch']['fixes']}\n"
+            result += f"* Тема: {kernel_cve['patch']['subject']}\n"
+            result += f"* Изменения: {kernel_cve['patch']['files_changed']}\n"
+            result += f"\nФайл(ы):\n\n"
             for filename in kernel_cve['patch']['files']:
                 result += f"* *{filename}*\n"
         else:
+            result += f"\nФайл(ы):\n\n"
             result += f"* **\n"
         result += f"\nСсылки:\n\n"
         for link in kernel_cve['links']:
             result += f"* {link}\n"
-        result += f"\nВ ядре версии {self.kernel_72} для os72 уязвимость \n"
-        result += f"В ядре версии {self.kernel_73} для os73 уязвимость \n\n"
+        result += f"\nИсточник:\n\n"
+        result += f"* https://nvd.nist.gov/vuln/detail/{kernel_cve['id']}\n"
+
+        result += f"\nОценить уязвимость текущей версии ядра {self.kernel_73} для os73 \n\n"
         result += "---\n\n"
         return result
 
-    # def __write_patches(self, cve_id: str, cve_links: list):
-    #     patches_found = 0
-    #     sys.stdout.write("\r" + cve_id)
-    #     sys.stdout.flush()
-    #     for cve in cve_links:
-    #         is_patch_found = False
-    #
-    #             is_patch_found = True
-    #             with open(f"{PATCHES_PATH}/{cve_id}.patch", "w") as f:
-    #                 f.write(patch_data.pop('patch'))
-    #             with open(f"{PATCHES_PATH}/{cve_id}_meta.json", 'w') as f:
-    #                 json.dump(patch_data, f)
-    #         if is_patch_found:
-    #             patches_found += 1
-    #     sys.stdout.write("\r" + ' ')
-    #     sys.stdout.flush()
-    #     print(f"\nPatches found: {patches_found}")
-    def __write_patches(self, cve_id: str, cve_links: list):
-        pass
-
     def run(self):
+        issues = ""
+        patches_found = 0
         kernel_cves = self.get_current_cves(*self.__get_dates())
         for k_cve in kernel_cves:
-            issue = self._get_issue_str(k_cve)
-            print(issue)
-            # with open(f"{PATCHES_PATH}/{k_cve['id']}.patch", "w") as f:
-            #     f.write(patch_data.pop('patch'))
-            # self.__write_patches(k_cve['id'], k_cve['links'])
+            issues += self._get_issue_str(k_cve)
+            if k_cve['patch']:
+                patches_found += 1
+                with open(f"{PATCHES_PATH}/{k_cve['id']}.patch", "w") as f:
+                    f.write(k_cve['patch']['patch_text'])
+            with open(f"{ISSUES_PATH}/issues-{date.today().strftime('%d%m%Y')}.md", "w") as f:
+                f.write(issues)
+        print(f"Patches found: {patches_found}")
 
 
 if __name__ == '__main__':
