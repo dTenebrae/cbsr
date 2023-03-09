@@ -18,7 +18,7 @@ from datetime import timedelta, date
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-DAYS_TO_CHECK = 3
+DAYS_TO_CHECK = 30
 NUMBER_OF_RECON = 5
 
 OS72_TAG = "os72-updates"
@@ -40,6 +40,7 @@ ISSUES_PATH = f"{os.getcwd()}/output/issues"
 # Явки/пароли для трекера
 redmine_credentials = dotenv_values(".env")
 REDMINE_URL = "http://10.81.0.88"
+CHECK_REDMINE = True
 
 HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,'
@@ -59,6 +60,11 @@ class CveChecker:
         session = koji.ClientSession(KOJI_URL)
         kojitag72 = session.getTag(OS72_TAG)
         kojitag73 = session.getTag(OS73_TAG)
+
+        # Задел на будущее, список пакетов, с которым можно сравнивать упоминаемый в CVE
+        # TODO Сделать универсальный парсер
+        # os72_packages = session.getLatestBuilds(OS72_TAG)
+        # os73_packages = session.getLatestBuilds(OS73_TAG)
 
         package_list_72 = session.getLatestRPMS(kojitag72['id'], arch='src', package=package_basename)[1]
         package_list_73 = session.getLatestRPMS(kojitag73['id'], arch='src', package=package_basename)[1]
@@ -94,7 +100,7 @@ class CveChecker:
         self.__prepare_dirs()
         self.kernel_72, self.kernel_73 = self.__get_kernel()
         self.kernel_72_path, self.kernel_73_path = f"{KERNEL_PATH}/linux-{self.kernel_72}", \
-            f"{KERNEL_PATH}/linux-{self.kernel_73}"
+                                                   f"{KERNEL_PATH}/linux-{self.kernel_73}"
         self.days_to_check = days_to_check
         self.recon_num = recon_num
         self.redmine = self.__redmine_auth()
@@ -102,7 +108,7 @@ class CveChecker:
         # vuln_project = redmine.project.get(297)
 
     @staticmethod
-    def __get_respone(*args, bs=True, **kwargs):
+    def __get_respone(*args, bs=True, parser='lxml', **kwargs):
         recon_count = 0
         while recon_count <= NUMBER_OF_RECON:
             try:
@@ -112,7 +118,7 @@ class CveChecker:
                     raise ConnectionError
                 sleep(0.1)
                 if bs:
-                    return BeautifulSoup(response.text, 'lxml')
+                    return BeautifulSoup(response.text, parser)
                 else:
                     return response
             except ConnectionError as CE:
@@ -121,12 +127,33 @@ class CveChecker:
                 sleep(0.250)
                 recon_count += 1
 
-    def is_exists_on_redmine(self, cve: str) -> bool:
+    def is_cve_exists_rest_api(self, cve: str) -> bool:
         """
-        Описана ли CVE в трекере
+        Костыльная проверка на существование CVE в трекере. Используется, пока не разберусь с оберткой redminelib
+        """
+        url = f"{REDMINE_URL}/projects/cve/search.xml?&issues=1&q={cve}"
+
+        resp = self.__get_respone(url,
+                                  bs=True,
+                                  parser='xml',
+                                  headers=HEADERS,
+                                  auth=(redmine_credentials['USER'], redmine_credentials['PASSWORD'])
+                                  )
+        f_count = resp.find("results").get("total_count")
+        try:
+            result = int(f_count)
+            return bool(result)
+        except ValueError:
+            print("Ошибка поиска")
+            return False
+
+    def __is_exists_on_redmine(self, cve: str) -> bool:
+        """
+        Некостыльная проверка. Пока, понятное дело, не функционирует
         """
         if self.redmine:
-            print(1)
+            # здесь будет происходить проверка.
+            pass
         else:
             print("Проблема с аутентификацией на трекере. Есть ли дубликат - неизвестно")
             return False
@@ -137,7 +164,7 @@ class CveChecker:
         return from_date, to_date
 
     @staticmethod
-    def prepare_url(url, queries: dict) -> str:
+    def __prepare_url(url, queries: dict) -> str:
         url += '?'
         for k, v in queries.items():
             url += f'{k}={v}' if v else k
@@ -198,6 +225,7 @@ class CveChecker:
         date2 = '2023-03-02T23:59:59.999-05:00'
         """
         cve_list = []
+        kernel_cve_count, exists_count = 0, 0
 
         # Получим response
         params = {
@@ -205,7 +233,7 @@ class CveChecker:
             NIST_START: date_from,
             NIST_END: date_to
         }
-        url = self.prepare_url(NIST_API_URL, params)
+        url = self.__prepare_url(NIST_API_URL, params)
         nist_resp = self.__get_respone(url, bs=False, headers=HEADERS)
 
         nist_json = nist_resp.json()
@@ -216,9 +244,17 @@ class CveChecker:
         print(f'Total CVE found: {total_res}')
         for cve in nist_json.get('vulnerabilities'):
             patch, scores = {}, {}
+            cve_id = cve['cve']['id']
             desc = cve['cve']['descriptions'][0]['value']
+
             # TODO сделать для всех видов пакетов
-            if 'linux kernel' not in desc.lower():
+            if ('linux kernel' not in desc.lower()) or ('android linux kernel' in desc.lower()):
+                continue
+            kernel_cve_count += 1
+
+            # Проверим, заведена ли уже задача по данной CVE
+            if CHECK_REDMINE and self.is_cve_exists_rest_api(cve_id):
+                exists_count += 1
                 continue
 
             links = [link['url'] for link in cve['cve']['references']]
@@ -232,7 +268,7 @@ class CveChecker:
                     cve['cve']['metrics'][key][0]['cvssData']['baseScore']
 
             result = {
-                'id': cve['cve']['id'],
+                'id': cve_id,
                 'description': desc,
                 'published': cve['cve']['published'],
                 'lastModified': cve['cve']['lastModified'],
@@ -243,7 +279,8 @@ class CveChecker:
             }
 
             cve_list.append(result)
-        print(f"Kernel CVE: {len(cve_list)}")
+        print(f"Kernel CVE: {kernel_cve_count}")
+        print(f"CVE existed on a tracker: {exists_count}")
         return cve_list
 
     def _get_issue_str(self, kernel_cve: dict) -> str:
@@ -267,9 +304,6 @@ class CveChecker:
             result += f"\nФайл(ы):\n\n"
             for filename in kernel_cve['patch']['files']:
                 result += f"* *{filename}*\n"
-        else:
-            result += f"\nФайл(ы):\n\n"
-            result += f"* **\n"
         result += f"\nСсылки:\n\n"
         for link in kernel_cve['links']:
             result += f"* {link}\n"
@@ -280,19 +314,48 @@ class CveChecker:
         result += "---\n\n"
         return result
 
+    def create_an_issue(self, desc: str, paths: list, multiple=False):
+        subject = 'Множественные уязвимости в ядре Linux' if multiple else 'Уязвимость в ядре Linux'
+        path_list = [{'path': patch_path} for patch_path in paths]
+        print(1)
+        issue = self.redmine.issue.create(
+            project_id=297,  # 297 Уязвимости
+            subject=subject,  # заголовок
+            tracker_id=10,  # 10 - класс "Задача"
+            description=desc,  # тело задачи
+            status_id=1,  # 1 - новая
+            fixed_version_id=146,  # Версия: РЕД ОС - РЕД ОС 7.3
+            priority_id=1,  # 1 - нормальный приоритет
+            assigned_to_id=490,
+            watcher_user_ids=[490],  # 490 - Чернышев Артем, 25 - Шапошников Олег
+            custom_fields=[{'id': 151, 'value': 'Все'},  # Конфигурация ОС: Все
+                           {'id': 133, 'value': ['143', '144']},  # Редакция: Сертифицированная, Стандартная
+                           {'id': 352, 'name': 'kernel'}  # Метка: kernel
+                           ],
+            uploads=path_list,
+        )
+        return issue.id
+
     def run(self):
         issues = ""
+        patch_paths = []
         patches_found = 0
         kernel_cves = self.get_current_cves(*self.__get_dates())
         for k_cve in kernel_cves:
             issues += self._get_issue_str(k_cve)
             if k_cve['patch']:
                 patches_found += 1
-                with open(f"{PATCHES_PATH}/{k_cve['id']}.patch", "w") as f:
+                cur_path = f"{PATCHES_PATH}/{k_cve['id']}.patch"
+                with open(cur_path, "w") as f:
                     f.write(k_cve['patch']['patch_text'])
-            with open(f"{ISSUES_PATH}/issues-{date.today().strftime('%d%m%Y')}.md", "w") as f:
-                f.write(issues)
+                    patch_paths.append(cur_path)
         print(f"Patches found: {patches_found}")
+
+        if kernel_cves:
+            issue_id = self.create_an_issue(issues, paths=patch_paths, multiple=(len(kernel_cves) > 1))
+            with open(f"{ISSUES_PATH}/issues-{issue_id}.md", "w") as f:
+                f.write(issues)
+            print(f"Создана задача №{issue_id}")
 
 
 if __name__ == '__main__':
