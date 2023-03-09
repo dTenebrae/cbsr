@@ -24,7 +24,7 @@ NUMBER_OF_RECON = 5
 
 OS72_TAG = "os72-updates"
 OS73_TAG = "os73-updates"
-KOJI_URL = "http://stapel.red-soft.ru/kojihub"
+KOJI_URL = "http://10.81.1.26/kojihub"
 
 NIST_API_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 NIST_CVE = "cveId"
