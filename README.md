@@ -5,4 +5,5 @@
 ```
 REDMINE_USER='username'
 REDMINE_PASSWORD='strong-and-complicated-password'
+VULNERS_KEY='vulners-api-key'
 ```
