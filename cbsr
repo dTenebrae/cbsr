@@ -5,6 +5,7 @@ import os
 import koji
 import shutil
 import urllib3
+import vulners
 import requests
 import argparse
 import redminelib
@@ -40,7 +41,7 @@ ISSUES_PATH = f"{os.getcwd()}/output/issues"
 
 
 # Явки/пароли для трекера
-redmine_credentials = dotenv_values(".env")
+credentials = dotenv_values(".env")
 REDMINE_URL = "http://10.81.0.88"
 
 # Защита от дурака. Умный выстрелит себе в ногу и насоздает тем, которые уже есть
@@ -88,14 +89,19 @@ class CveChecker:
         Простой wrapper для авторизации
         """
         redmine = Redmine(REDMINE_URL,
-                          username=redmine_credentials['USER'],
-                          password=redmine_credentials['PASSWORD'])
+                          username=credentials['REDMINE_USER'],
+                          password=credentials['REDMINE_PASSWORD'])
         try:
             redmine.auth()
             return redmine
         except redminelib.exceptions.AuthError:
             print("Auth Failed")
             return None
+
+    @staticmethod
+    def __vulners_auth():
+        vulners_api = vulners.VulnersApi(api_key=credentials['VULNERS_KEY'])
+        return vulners_api
 
     @staticmethod
     def __prepare_dirs():
@@ -117,6 +123,7 @@ class CveChecker:
         self.days_to_check = days_to_check
         self.recon_num = recon_num
         self.redmine = self.__redmine_auth()
+        self.vulners = self.__vulners_auth()
 
     @staticmethod
     def __get_respone(*args, bs=True, parser='lxml', **kwargs):
@@ -155,7 +162,7 @@ class CveChecker:
                                   bs=True,
                                   parser='xml',
                                   headers=HEADERS,
-                                  auth=(redmine_credentials['USER'], redmine_credentials['PASSWORD'])
+                                  auth=(credentials['USER'], credentials['PASSWORD'])
                                   )
         # Найдем, сколько раз CVE встречается в поиске
         f_count = resp.find("results").get("total_count")
@@ -308,6 +315,7 @@ class CveChecker:
                 'status': cve['cve']['vulnStatus'],
                 'links': links,
                 'scores': scores,
+                'ai_scores': self.vulners.get_ai_score(desc)[0],
                 'patch': patch,
             }
 
@@ -328,6 +336,10 @@ class CveChecker:
             result += f'Важность:\n'
             for k, v in kernel_cve['scores'].items():
                 result += f"* *CVSS {k}: {v}*\n"
+        elif AI_SCORE:
+            result += f'Важность:\n'
+            result += f"* *AI Score: {kernel_cve['ai_score']}\n"
+            result += f"_Оценка - результат работы нейросети, поэтому является ознакомительной_"
         if kernel_cve['patch']:
             result += f'Данные патча:\n\n'
             result += f"* Дата: {kernel_cve['patch']['date']}\n"
@@ -431,6 +443,14 @@ def parse_args():
         help="Проверяем, есть ли такая тема на трекере. В случае если не проверяем, "
              "тема создаваться не будет. Значения 0 или 1"
     )
+    parser.add_argument(
+        '-n',
+        '--neural',
+        type=int,
+        default=0,
+        help="Включить приблизительную оценку важности уязвимости с помощью нейросети."
+             "Качество не впечатляет"
+    )
 
     return parser.parse_args()
 
@@ -440,6 +460,7 @@ if __name__ == '__main__':
     DAYS_TO_CHECK = arguments.day
     CHECK_REDMINE = bool(arguments.exists)
     CREATE_AN_ISSUE = bool(arguments.tracker) and CHECK_REDMINE
+    AI_SCORE = bool(arguments.neural)
 
     print(f"Checking CVE's for last: {DAYS_TO_CHECK} day(s)")
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON)

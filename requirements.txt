@@ -1,3 +1,4 @@
+appdirs==1.4.4
 beautifulsoup4==4.11.2
 bs4==0.0.1
 certifi==2022.12.7
@@ -15,3 +16,4 @@ requests-gssapi==1.2.3
 six==1.16.0
 soupsieve==2.4
 urllib3==1.26.14
+vulners==2.0.9
