@@ -162,7 +162,7 @@ class CveChecker:
                                   bs=True,
                                   parser='xml',
                                   headers=HEADERS,
-                                  auth=(credentials['USER'], credentials['PASSWORD'])
+                                  auth=(credentials['REDMINE_USER'], credentials['REDMINE_PASSWORD'])
                                   )
         # Найдем, сколько раз CVE встречается в поиске
         f_count = resp.find("results").get("total_count")
@@ -414,7 +414,8 @@ class CveChecker:
                                             multiple=(len(kernel_cves) > 1))
             with open(f"{ISSUES_PATH}/issues-{issue_id}.md", "w") as f:
                 f.write(issues)
-            print(f"Создана задача №{issue_id}")
+            print(f"Создана задача № {issue_id}")
+            print(f"{REDMINE_URL}/issues/{issue_id}")
 
 
 def parse_args():
