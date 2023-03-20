@@ -176,8 +176,7 @@ class CveChecker:
     @staticmethod
     def __user_wants_create_issue() -> bool:
         """
-        Костыльная проверка на существование CVE в трекере.
-        Используется, пока не разберусь с оберткой redminelib
+        Проверяем, хочет ли юзер создавать задачу на трекере
         """
         while True:
             human_resp = input("Создать тему в трекере? ")
