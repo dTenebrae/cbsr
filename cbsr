@@ -173,6 +173,18 @@ class CveChecker:
             print("Ошибка поиска")
             return False
 
+    @staticmethod
+    def __user_wants_create_issue() -> bool:
+        """
+        Костыльная проверка на существование CVE в трекере.
+        Используется, пока не разберусь с оберткой redminelib
+        """
+        while True:
+            human_resp = input("Создать тему в трекере? ")
+            if human_resp.lower() not in ['yes', 'y', 'n', 'no']:
+                continue
+            return True if human_resp in ['yes', 'y'] else False
+
     # def __is_exists_on_redmine(self, cve: str) -> bool:
     #     """
     #     Некостыльная проверка. Пока, понятное дело, не функционирует
@@ -371,7 +383,8 @@ class CveChecker:
         Возвращает ID темы
         """
         subject = 'Множественные уязвимости в ядре Linux' if multiple else 'Уязвимость в ядре Linux'
-        patch_list = [{'path': BytesIO(patch.encode('utf-8'))} for patch in patches]
+        # TODO Сделать рабочее присоединение файлов
+        # patch_list = [{'path': BytesIO(patch.encode('utf-8'))} for patch in patches]
         issue = self.redmine.issue.create(
             project_id=297,  # 297 Уязвимости
             subject=subject,  # заголовок
@@ -384,9 +397,11 @@ class CveChecker:
             watcher_user_ids=[490],  # 490 - Чернышев Артем, 25 - Шапошников Олег
             custom_fields=[{'id': 151, 'value': 'Все'},  # Конфигурация ОС: Все
                            {'id': 133, 'value': ['143', '144']},  # 143, 144 - Редакция: Сертифицированная, Стандартная
-                           {'id': 352, 'name': 'kernel'}  # Метка: kernel
                            ],
-            uploads=patch_list,
+            tags=[
+                {'id': 352, 'name': 'kernel'}  # Метка: kernel
+            ],
+            # uploads=patch_list,
         )
         return issue.id
 
@@ -406,9 +421,10 @@ class CveChecker:
                 with open(f"{PATCHES_PATH}/{k_cve['id']}.patch", "w") as f:
                     f.write(k_cve['patch']['patch_text'])
 
-        print(f"Patches found: {patches_found}")
+        print(f"Patches found: {patches_found}\n")
+        print(issues)
 
-        if CREATE_AN_ISSUE and kernel_cves:
+        if CREATE_AN_ISSUE and kernel_cves and self.__user_wants_create_issue():
             issue_id = self.create_an_issue(issues,
                                             patches=patch_strs,
                                             multiple=(len(kernel_cves) > 1))
