@@ -256,7 +256,7 @@ class CveChecker:
         date_re = re.compile(r"Date:\s(.+)")
         fixes_re = re.compile(r"Fixes:\s([a-z0-9]+)")
         subject_re = re.compile(r"Subject:\s(.+)")
-        files_raw = re.findall(r"(?<=---)[\S\s]*?(?=diff)", patch_txt)[0].strip().split('\n')
+        files_raw = re.findall(r"(?<=^---)[\S\s]*?(?=diff)", patch_txt)[0].strip().split('\n')
 
         return {
             'date': date_re.search(patch_txt).group(1) if date_re.search(patch_txt) else None,
