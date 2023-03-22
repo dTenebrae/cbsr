@@ -157,6 +157,11 @@ class CveChecker:
         Используется, пока не разберусь с оберткой redminelib
         """
         url = f"{REDMINE_URL}/projects/cve/search.xml?&issues=1&q={cve}"
+        # Так как редмайн ищет все вхождения подстроки, мы можем
+        # проигнорировать CVE сами того не желая.
+        # Например: CVE-2023-1281 при наличии на трекере CVE-2023-12811
+        # посчитается как существующая
+        exact_search_re = re.compile(fr"\b{cve}\b", re.I)
 
         resp = self.__get_respone(url,
                                   bs=True,
@@ -168,7 +173,9 @@ class CveChecker:
         f_count = resp.find("results").get("total_count")
         try:
             result = int(f_count)
-            return bool(result)
+            if result:
+                return bool(exact_search_re.findall(resp.text))
+            return False
         except ValueError:
             print("Ошибка поиска")
             return False
@@ -334,7 +341,7 @@ class CveChecker:
 
             cve_list.append(result)
         print(f"Kernel CVE: {kernel_cve_count}")
-        print(f"CVE list: {cve_id_list}")
+        print(f"CVE list: {', '.join(cve_id_list)}")
         print(f"CVE existed on a tracker: {exists_count}")
         return cve_list
 
