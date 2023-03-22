@@ -256,7 +256,7 @@ class CveChecker:
         date_re = re.compile(r"Date:\s(.+)")
         fixes_re = re.compile(r"Fixes:\s([a-z0-9]+)")
         subject_re = re.compile(r"Subject:\s(.+)")
-        files_raw = re.findall(r"(?<=^---)[\S\s]*?(?=diff)", patch_txt)[0].strip().split('\n')
+        files_raw = re.findall(r"(?<=---)[\S\s]*?(?=diff)", patch_txt)[0].strip().split('\n')
 
         return {
             'date': date_re.search(patch_txt).group(1) if date_re.search(patch_txt) else None,
@@ -275,6 +275,7 @@ class CveChecker:
         date2 = '2023-03-02T23:59:59.999-05:00'
         """
         cve_list = []
+        cve_id_list = []
         kernel_cve_count, exists_count = 0, 0
 
         # Получим response
@@ -303,6 +304,7 @@ class CveChecker:
                 continue
             kernel_cve_count += 1
 
+            cve_id_list.append(cve_id)
             # Проверим, заведена ли уже задача по данной CVE
             if CHECK_REDMINE and self.is_cve_exists_rest_api(cve_id):
                 exists_count += 1
@@ -332,6 +334,7 @@ class CveChecker:
 
             cve_list.append(result)
         print(f"Kernel CVE: {kernel_cve_count}")
+        print(f"CVE list: {cve_id_list}")
         print(f"CVE existed on a tracker: {exists_count}")
         return cve_list
 
@@ -352,7 +355,7 @@ class CveChecker:
             result += f"* *AI Score: {kernel_cve['ai_score']}\n"
             result += f"_Оценка - результат работы нейросети, поэтому является ознакомительной_"
         if kernel_cve['patch']:
-            result += f'Данные патча:\n\n'
+            result += f'\nДанные патча:\n\n'
             result += f"* Дата: {kernel_cve['patch']['date']}\n"
             if kernel_cve['patch']['fixes']:
                 result += f"* Уязвимый коммит: https://github.com/torvalds/linux/commit/" \
