@@ -20,7 +20,6 @@ from datetime import timedelta, date
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ############################ КОНСТАНТЫ #############################
-DAYS_TO_CHECK = 1
 NUMBER_OF_RECON = 5
 
 OS72_TAG = "os72-updates"
@@ -44,9 +43,6 @@ ISSUES_PATH = f"{os.getcwd()}/output/issues"
 credentials = dotenv_values(".env")
 REDMINE_URL = "http://10.81.0.88"
 
-# Защита от дурака. Умный выстрелит себе в ногу и насоздает тем, которые уже есть
-CHECK_REDMINE = True
-CREATE_AN_ISSUE = True and CHECK_REDMINE
 
 HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,'
