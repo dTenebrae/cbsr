@@ -7,6 +7,8 @@ import json
 import shutil
 import urllib3
 import vulners
+import telebot
+from telebot import types
 import requests
 import argparse
 import subprocess
@@ -18,6 +20,7 @@ from bs4 import BeautifulSoup
 from redminelib import Redmine
 from dotenv import dotenv_values
 from datetime import timedelta, date
+from requests.structures import CaseInsensitiveDict
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -43,6 +46,9 @@ ISSUES_PATH = f"{os.getcwd()}/output/issues"
 # Явки/пароли для трекера
 credentials = dotenv_values(".env")
 REDMINE_URL = "http://10.81.0.88"
+
+group_id = credentials['TELEGRAM_GROUP_ID']
+bot = telebot.TeleBot(credentials['BOT_TOKEN'])
 
 HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,'
@@ -410,26 +416,71 @@ class CveChecker:
         )
         return issue.id
 
-    @staticmethod
-    def send_to_telegram(message: str) -> dict:
-        """
-        Послать заготовку темы в телеграм
-        :param message: строка, которую посылаем
-        :return: Возвращает ответ от телеги в случае успеха
-        """
-        group_id = credentials['TELEGRAM_GROUP_ID']
-        bot_token = credentials['BOT_TOKEN']
-        send_command = f"curl -s --data 'text={message}' --data 'chat_id={group_id}' " \
-                       f"'https://api.telegram.org/bot'{bot_token}'/sendMessage'"
-        ps = subprocess.Popen(send_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        result = ps.communicate()[0].decode('utf-8')
-        # TODO сделать try-except
-        return json.loads(result)
+    # @staticmethod
+    # def send_to_telegram(message: str) -> dict:
+    #     """
+    #     Послать заготовку темы в телеграм
+    #     :param message: строка, которую посылаем
+    #     :return: Возвращает ответ от телеги в случае успеха
+    #     """
+    #     group_id = credentials['TELEGRAM_GROUP_ID']
+    #     bot_token = credentials['BOT_TOKEN']
+    #     headers = CaseInsensitiveDict()
+    #     headers["Content-Type"] = "application/json"
+    #     send_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    #     get_url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
+    #     telegram_request = {
+    #         "chat_id": group_id,
+    #         "text": message,
+    #         "reply_markup": {
+    #             "inline_keyboard": [
+    #                 [
+    #                     {
+    #                         "text": "Создать",
+    #                         "callback_data": "yes"
+    #                     },
+    #                     {
+    #                         "text": "Отменить",
+    #                         "callback_data": "no"
+    #                     }
+    #                 ]
+    #             ]
+    #         }
+    #     }
+    #
+    #     telegram_response = {
+    #         "timeout": 30,
+    #         "allowed_updates": [
+    #             "callback_query"
+    #         ]
+    #     }
+    #     resp = requests.post(send_url, headers=headers, json=telegram_request)
+    #     if resp.status_code == requests.codes.ok:
+    #         callback = requests.get(get_url, headers=headers, json=telegram_response)
+    #     # response = requests.get(f"https://api.telegram.org/bot{bot_token}" + '/answerCallbackQuery?callback_query_id=' + '78294770')
+    #     return resp
+
+    # @staticmethod
+    # def send_to_telegram(message: str) -> dict:
+    #     """
+    #     Послать заготовку темы в телеграм
+    #     :param message: строка, которую посылаем
+    #     :return: Возвращает ответ от телеги в случае успеха
+    #     """
+    #     group_id = credentials['TELEGRAM_GROUP_ID']
+    #     bot_token = credentials['BOT_TOKEN']
+    #     send_command = f"curl -s --data 'text={message}' --data 'chat_id={group_id}' " \
+    #                    f"'https://api.telegram.org/bot'{bot_token}'/sendMessage'"
+    #     ps = subprocess.Popen(send_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    #     result = ps.communicate()[0].decode('utf-8')
+    #     # TODO сделать try-except
+    #     return json.loads(result)
 
     def run(self):
         """
         Основной цикл
         """
+        send_to_telegram("test message")
         issues = ""
         patch_strs = []
         patches_found = 0
@@ -443,9 +494,9 @@ class CveChecker:
                     f.write(k_cve['patch']['patch_text'])
 
         print(f"Patches found: {patches_found}\n")
-        print(issues)
-        if SEND_TO_TELEGRAM:
-            self.send_to_telegram(issues)
+        if issues and SEND_TO_TELEGRAM:
+            print(issues)
+            send_to_telegram(issues)
 
         if CREATE_AN_ISSUE and kernel_cves and self.__user_wants_create_issue():
             issue_id = self.create_an_issue(issues,
@@ -455,6 +506,22 @@ class CveChecker:
                 f.write(issues)
             print(f"Создана задача № {issue_id}")
             print(f"{REDMINE_URL}/issues/{issue_id}")
+
+
+@bot.callback_query_handler(func=lambda call: True)
+def handle_query(call):
+    if call.data == 'yes':
+        print('yes')
+    else:
+        print('no')
+
+
+def send_to_telegram(msg: str):
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    btn1 = types.InlineKeyboardButton("Создать", callback_data="yes")
+    btn2 = types.InlineKeyboardButton("Отмена", callback_data="no")
+    markup.add(btn1, btn2)
+    bot.send_message(group_id, text=msg, reply_markup=markup)
 
 
 def parse_args():
