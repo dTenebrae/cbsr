@@ -141,11 +141,11 @@ class CveChecker:
                     return BeautifulSoup(response.text, parser)
                 else:
                     return response
-            except ConnectionError as CE:
+            except ConnectionError:
                 # Стучимся пока не соединимся.
-                print(f'Ошибка соединения {CE}')
                 sleep(0.250)
                 recon_count += 1
+        print(f'Ошибка соединения')
 
     def is_cve_exists_rest_api(self, cve: str) -> bool:
         """
@@ -170,7 +170,7 @@ class CveChecker:
         try:
             result = int(f_count)
             if result:
-                return bool(exact_search_re.findall(resp.text))
+                return bool(exact_search_re.findall(resp.find("description").text))
             return False
         except ValueError:
             print("Ошибка поиска")
@@ -250,11 +250,11 @@ class CveChecker:
 
         # Получим response
         new_url = f'{url}.patch'
-        patch_resp = self.__get_respone(new_url, bs=True, headers=HEADERS).find('p')
+        patch_resp = self.__get_respone(new_url, bs=True, headers=HEADERS)
         # sanity check
         if not patch_resp:
             return {}
-        patch_txt = patch_resp.text
+        patch_txt = patch_resp.find('p').text
 
         date_re = re.compile(r"Date:\s(.+)")
         fixes_re = re.compile(r"Fixes:\s([a-z0-9]+)")
