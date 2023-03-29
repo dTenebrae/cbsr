@@ -303,7 +303,7 @@ class CveChecker:
         total_res = nist_json['totalResults']
         print(f'Total CVE found: {total_res}')
         for cve in nist_json.get('vulnerabilities'):
-            patch, scores = {}, {}
+            patch, scores = [], {}
             cve_id = cve['cve']['id']
             desc = cve['cve']['descriptions'][0]['value']
 
@@ -324,7 +324,7 @@ class CveChecker:
             for link in links:
                 patch_resp = self.__get_patches(link)
                 if patch_resp:
-                    patch = patch_resp
+                    patch.append(patch_resp)
             for key in cve['cve']['metrics'].keys():
                 scores[cve['cve']['metrics'][key][0]['cvssData']['version']] = \
                     cve['cve']['metrics'][key][0]['cvssData']['baseScore']
@@ -364,16 +364,17 @@ class CveChecker:
             result += f"* *AI Score: {kernel_cve['ai_score']}\n"
             result += f"_Оценка - результат работы нейросети, поэтому является ознакомительной_"
         if kernel_cve['patch']:
-            result += f'\nДанные патча:\n\n'
-            result += f"* Дата: {kernel_cve['patch']['date']}\n"
-            if kernel_cve['patch']['fixes']:
-                result += f"* Уязвимый коммит: https://github.com/torvalds/linux/commit/" \
-                          f"{kernel_cve['patch']['fixes']}\n"
-            result += f"* Тема: {kernel_cve['patch']['subject']}\n"
-            result += f"* Изменения: {kernel_cve['patch']['files_changed']}\n"
-            result += f"\nФайл(ы):\n\n"
-            for filename in kernel_cve['patch']['files']:
-                result += f"* *{filename}*\n"
+            for item in kernel_cve['patch']:
+                result += f'\nДанные патча:\n\n'
+                result += f"* Дата: {item['date']}\n"
+                if item['fixes']:
+                    result += f"* Уязвимый коммит: https://github.com/torvalds/linux/commit/" \
+                              f"{item['fixes']}\n"
+                result += f"* Тема: {item['subject']}\n"
+                result += f"* Изменения: {item['files_changed']}\n"
+                result += f"\nФайл(ы):\n\n"
+                for filename in item['files']:
+                    result += f"* *{filename}*\n"
         result += f"\nСсылки:\n\n"
         for link in kernel_cve['links']:
             result += f"* {link}\n"
@@ -416,71 +417,10 @@ class CveChecker:
         )
         return issue.id
 
-    # @staticmethod
-    # def send_to_telegram(message: str) -> dict:
-    #     """
-    #     Послать заготовку темы в телеграм
-    #     :param message: строка, которую посылаем
-    #     :return: Возвращает ответ от телеги в случае успеха
-    #     """
-    #     group_id = credentials['TELEGRAM_GROUP_ID']
-    #     bot_token = credentials['BOT_TOKEN']
-    #     headers = CaseInsensitiveDict()
-    #     headers["Content-Type"] = "application/json"
-    #     send_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    #     get_url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
-    #     telegram_request = {
-    #         "chat_id": group_id,
-    #         "text": message,
-    #         "reply_markup": {
-    #             "inline_keyboard": [
-    #                 [
-    #                     {
-    #                         "text": "Создать",
-    #                         "callback_data": "yes"
-    #                     },
-    #                     {
-    #                         "text": "Отменить",
-    #                         "callback_data": "no"
-    #                     }
-    #                 ]
-    #             ]
-    #         }
-    #     }
-    #
-    #     telegram_response = {
-    #         "timeout": 30,
-    #         "allowed_updates": [
-    #             "callback_query"
-    #         ]
-    #     }
-    #     resp = requests.post(send_url, headers=headers, json=telegram_request)
-    #     if resp.status_code == requests.codes.ok:
-    #         callback = requests.get(get_url, headers=headers, json=telegram_response)
-    #     # response = requests.get(f"https://api.telegram.org/bot{bot_token}" + '/answerCallbackQuery?callback_query_id=' + '78294770')
-    #     return resp
-
-    # @staticmethod
-    # def send_to_telegram(message: str) -> dict:
-    #     """
-    #     Послать заготовку темы в телеграм
-    #     :param message: строка, которую посылаем
-    #     :return: Возвращает ответ от телеги в случае успеха
-    #     """
-    #     group_id = credentials['TELEGRAM_GROUP_ID']
-    #     bot_token = credentials['BOT_TOKEN']
-    #     send_command = f"curl -s --data 'text={message}' --data 'chat_id={group_id}' " \
-    #                    f"'https://api.telegram.org/bot'{bot_token}'/sendMessage'"
-    #     ps = subprocess.Popen(send_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    #     result = ps.communicate()[0].decode('utf-8')
-    #     # TODO сделать try-except
-    #     return json.loads(result)
-
     def run(self):
         """
         Основной цикл
         """
-        send_to_telegram("test message")
         issues = ""
         patch_strs = []
         patches_found = 0
@@ -494,9 +434,11 @@ class CveChecker:
                     f.write(k_cve['patch']['patch_text'])
 
         print(f"Patches found: {patches_found}\n")
+        print(issues)
+
         if issues and SEND_TO_TELEGRAM:
-            print(issues)
             send_to_telegram(issues)
+            print(bot.polling())
 
         if CREATE_AN_ISSUE and kernel_cves and self.__user_wants_create_issue():
             issue_id = self.create_an_issue(issues,
@@ -510,10 +452,7 @@ class CveChecker:
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_query(call):
-    if call.data == 'yes':
-        print('yes')
-    else:
-        print('no')
+    return True if call.data == 'yes' else False
 
 
 def send_to_telegram(msg: str):
