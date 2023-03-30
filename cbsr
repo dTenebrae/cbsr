@@ -15,6 +15,7 @@ import subprocess
 import redminelib
 from io import BytesIO
 from time import sleep
+from pathlib import Path
 import urllib.parse as parse
 from bs4 import BeautifulSoup
 from redminelib import Redmine
@@ -379,10 +380,7 @@ class CveChecker:
         for link in kernel_cve['links']:
             result += f"* {link}\n"
         result += f"\nИсточник:\n\n"
-        result += f"* https://nvd.nist.gov/vuln/detail/{kernel_cve['id']}\n"
-
-        # TODO сделать привязку тега и redmine'ского fixed_version_id
-        result += f"\nОценить уязвимость текущей версии ядра {self.kernel_73} для os73 \n\n"
+        result += f"* https://nvd.nist.gov/vuln/detail/{kernel_cve['id']}\n\n"
         result += "---\n\n"
         return result
 
@@ -410,8 +408,8 @@ class CveChecker:
             custom_fields=[{'id': 151, 'value': 'Все'},  # Конфигурация ОС: Все
                            {'id': 133, 'value': ['143', '144']},  # 143, 144 - Редакция: Сертифицированная, Стандартная
                            ],
-            tags=[
-                {'id': 352, 'name': 'kernel'}  # Метка: kernel
+            tag_list=[
+                'kernel'  # Метка: kernel
             ],
             # uploads=patch_list,
         )
@@ -421,6 +419,7 @@ class CveChecker:
         """
         Основной цикл
         """
+        self.git_func(self.kernel_73_path)
         issues = ""
         patch_strs = []
         patches_found = 0
@@ -432,6 +431,9 @@ class CveChecker:
                 patch_strs.append(k_cve['patch']['patch_text'])
                 with open(f"{PATCHES_PATH}/{k_cve['id']}.patch", "w") as f:
                     f.write(k_cve['patch']['patch_text'])
+        # TODO сделать привязку тега и redmine'ского fixed_version_id
+        if issues:
+            issues += f"\nОценить уязвимость текущей версии ядра {self.kernel_73} для os73 \n"
 
         print(f"Patches found: {patches_found}\n")
         print(issues)
@@ -440,7 +442,7 @@ class CveChecker:
             send_to_telegram(issues)
             print(bot.polling())
 
-        if CREATE_AN_ISSUE and kernel_cves and self.__user_wants_create_issue():
+        if CREATE_AN_ISSUE and kernel_cves and self.redmine and self.__user_wants_create_issue():
             issue_id = self.create_an_issue(issues,
                                             patches=patch_strs,
                                             multiple=(len(kernel_cves) > 1))
@@ -448,6 +450,34 @@ class CveChecker:
                 f.write(issues)
             print(f"Создана задача № {issue_id}")
             print(f"{REDMINE_URL}/issues/{issue_id}")
+
+    @staticmethod
+    def git_func(git_path):
+        """
+        'On branch master\nnothing to commit, working tree clean\n'
+
+        'fatal: not a git repository (or any parent up to mount point /)\nStopping at filesystem boundary
+        (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\n'
+
+        'On branch main\nYour branch is up to date with \'origin/main\'.\n\nChanges not staged for commit:\n
+        (use "git add <file>..." to update what will be committed)\n  (use "git restore <file>..." to discard changes
+        in working directory)\n\tmodified:   cbsr\n\nno changes added to commit
+        (use "git add" and/or "git commit -a")\n'
+        """
+        os.chdir(Path(git_path))
+        ps = subprocess.Popen("git status", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        git_status = ps.communicate()[0].decode('utf-8')
+        if 'fatal: not a git repository' in git_status:
+            print("Not a git repository")
+            return None
+        elif 'Changes not staged for commit' in git_status:
+            print("Some untracked changes in git tree")
+            return None
+        elif 'working tree clean' in git_status:
+            print("Working tree is fine")
+        else:
+            print("Unknown error")
+            return None
 
 
 @bot.callback_query_handler(func=lambda call: True)
