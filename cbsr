@@ -19,6 +19,7 @@ from pathlib import Path
 import urllib.parse as parse
 from bs4 import BeautifulSoup
 from redminelib import Redmine
+from collections import Counter
 from dotenv import dotenv_values
 from datetime import timedelta, date
 from requests.structures import CaseInsensitiveDict
@@ -348,7 +349,8 @@ class CveChecker:
         print(f"CVE existed on a tracker: {exists_count}")
         return cve_list
 
-    def _get_issue_str(self, kernel_cve: dict) -> str:
+    @staticmethod
+    def _get_issue_str(kernel_cve: dict) -> str:
         """
         Формирует строку для последующего создания темы на трекере
         """
@@ -418,24 +420,35 @@ class CveChecker:
     def run(self):
         """
         Основной цикл
+        TODO разбить на функции, а то bloated
         """
-        self.git_func(self.kernel_73_path)
         issues = ""
         patch_strs = []
         patches_found = 0
+        patches_applied = Counter()
+
         kernel_cves = self.get_current_cves(*self.__get_dates())
         for k_cve in kernel_cves:
             issues += self._get_issue_str(k_cve)
-            if k_cve['patch']:
-                patches_found += 1
-                patch_strs.append(k_cve['patch']['patch_text'])
-                with open(f"{PATCHES_PATH}/{k_cve['id']}.patch", "w") as f:
-                    f.write(k_cve['patch']['patch_text'])
+            if not k_cve['patch']:
+                continue
+            patches_found += 1
+            for i, patch in enumerate(k_cve['patch']):
+                patch_strs.append(patch['patch_text'])
+                with open(f"N{i}_{PATCHES_PATH}/{k_cve['id']}.patch", "w") as f:
+                    f.write(patch['patch_text'])
+                # Пробуем применить патч к актуальной версии ядра
+                # TODO Сделать sanity check на существование файла
+                patching_result = self.try_to_apply_patches(self.kernel_73_path,
+                                                            f"{PATCHES_PATH}/{k_cve['id']}.patch")
+                if patching_result:
+                    patches_applied[k_cve['id']] += 1
         # TODO сделать привязку тега и redmine'ского fixed_version_id
         if issues:
             issues += f"\nОценить уязвимость текущей версии ядра {self.kernel_73} для os73 \n"
 
         print(f"Patches found: {patches_found}\n")
+        print(f"Patches applied: {patches_applied}\n")
         print(issues)
 
         if issues and SEND_TO_TELEGRAM:
@@ -452,20 +465,15 @@ class CveChecker:
             print(f"{REDMINE_URL}/issues/{issue_id}")
 
     @staticmethod
-    def git_func(git_path):
+    def try_to_apply_patches(git_path, patch_path):
         """
-        'On branch master\nnothing to commit, working tree clean\n'
 
-        'fatal: not a git repository (or any parent up to mount point /)\nStopping at filesystem boundary
-        (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\n'
-
-        'On branch main\nYour branch is up to date with \'origin/main\'.\n\nChanges not staged for commit:\n
-        (use "git add <file>..." to update what will be committed)\n  (use "git restore <file>..." to discard changes
-        in working directory)\n\tmodified:   cbsr\n\nno changes added to commit
-        (use "git add" and/or "git commit -a")\n'
         """
         os.chdir(Path(git_path))
-        ps = subprocess.Popen("git status", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        ps = subprocess.Popen("git status",
+                              shell=True,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT)
         git_status = ps.communicate()[0].decode('utf-8')
         if 'fatal: not a git repository' in git_status:
             print("Not a git repository")
@@ -473,8 +481,25 @@ class CveChecker:
         elif 'Changes not staged for commit' in git_status:
             print("Some untracked changes in git tree")
             return None
+        elif 'Changes to be committed' in git_status:
+            print("Not commited files exists in tree")
+            return None
         elif 'working tree clean' in git_status:
             print("Working tree is fine")
+            ps = subprocess.Popen(f"patch -p 1 < {Path(patch_path)}",
+                                  shell=True,
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT)
+            git_status = ps.communicate()[0].decode('utf-8')
+            subprocess.run(["git", "add", "."])
+            subprocess.run(['git', 'commit', '-m', 'tmp'])
+            subprocess.run(["git", "reset", "--hard", "HEAD~1"])
+            if 'FAILED' in git_status:
+                print("Patching failed")
+                return None
+            else:
+                print("Patching successful")
+                return git_status
         else:
             print("Unknown error")
             return None
