@@ -446,10 +446,9 @@ class CveChecker:
         # TODO сделать привязку тега и redmine'ского fixed_version_id
         if issues:
             issues += f"\nОценить уязвимость текущей версии ядра {self.kernel_73} для os73 \n"
-
-        print(f"Patches found: {patches_found}\n")
-        print(f"Patches applied: {patches_applied}\n")
-        print(issues)
+            print(f"Patches found: {patches_found}\n")
+            print(f"Patches applied: {patches_applied}\n")
+            print(issues)
 
         if issues and SEND_TO_TELEGRAM:
             send_to_telegram(issues)
