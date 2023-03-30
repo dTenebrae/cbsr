@@ -6,4 +6,6 @@
 REDMINE_USER='username'
 REDMINE_PASSWORD='strong-and-complicated-password'
 VULNERS_KEY='vulners-api-key'
+TELEGRAM_GROUP_ID='chat-or-group-id'
+BOT_TOKEN='bot-token'
 ```
