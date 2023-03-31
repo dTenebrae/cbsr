@@ -435,7 +435,7 @@ class CveChecker:
             patches_found += 1
             for i, patch in enumerate(k_cve['patch']):
                 patch_strs.append(patch['patch_text'])
-                with open(f"N{i}_{PATCHES_PATH}/{k_cve['id']}.patch", "w") as f:
+                with open(f"{PATCHES_PATH}/N{i}_{k_cve['id']}.patch", "w") as f:
                     f.write(patch['patch_text'])
                 # Пробуем применить патч к актуальной версии ядра
                 # TODO Сделать sanity check на существование файла
