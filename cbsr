@@ -195,17 +195,6 @@ class CveChecker:
                 continue
             return True if human_resp in ['yes', 'y'] else False
 
-    # def __is_exists_on_redmine(self, cve: str) -> bool:
-    #     """
-    #     Некостыльная проверка. Пока, понятное дело, не функционирует
-    #     """
-    #     if self.redmine:
-    #         # здесь будет происходить проверка.
-    #         pass
-    #     else:
-    #         print("Проблема с аутентификацией на трекере. Есть ли дубликат - неизвестно")
-    #         return False
-
     def __get_dates(self):
         """
         возвращает кортеж строк с датами требуемого формата,
