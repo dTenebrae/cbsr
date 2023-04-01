@@ -486,6 +486,9 @@ class CveChecker:
             if 'FAILED' in git_status:
                 print("Patching failed")
                 return None
+            elif 'previously applied' in git_status:
+                print("Patch already exists in a tree")
+                return None
             else:
                 print("Patching successful")
                 return git_status
