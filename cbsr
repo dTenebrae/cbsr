@@ -47,7 +47,8 @@ ISSUES_PATH = f"{os.getcwd()}/output/issues"
 
 # Явки/пароли для трекера
 credentials = dotenv_values(".env")
-REDMINE_URL = "http://10.81.0.88"
+# REDMINE_URL = "http://10.81.0.88"
+REDMINE_URL = "https://tracker.red-soft.ru"
 
 group_id = credentials['TELEGRAM_GROUP_ID']
 bot = telebot.TeleBot(credentials['BOT_TOKEN'])
