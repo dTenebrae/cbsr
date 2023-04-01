@@ -41,6 +41,7 @@ NIST_END = "pubEndDate"
 
 # TODO поменять, так как привязано к моей машине
 KERNEL_PATH = "/home/tenebrae/devel/tracker/kernel/src"
+PATCH_PATH = "/home/tenebrae/devel/tracker/kernel/patches"
 
 PATCHES_PATH = f"{os.getcwd()}/output/patches"
 ISSUES_PATH = f"{os.getcwd()}/output/issues"
@@ -425,14 +426,17 @@ class CveChecker:
             patches_found += 1
             for i, patch in enumerate(k_cve['patch']):
                 patch_strs.append(patch['patch_text'])
-                with open(f"{PATCHES_PATH}/N{i}_{k_cve['id']}.patch", "w") as f:
+                patch_path = f"{PATCHES_PATH}/N{i}_{k_cve['id']}.patch"
+                with open(patch_path, "w") as f:
                     f.write(patch['patch_text'])
                 # Пробуем применить патч к актуальной версии ядра
                 # TODO Сделать sanity check на существование файла
                 patching_result = self.try_to_apply_patches(self.kernel_73_path,
-                                                            f"{PATCHES_PATH}/{k_cve['id']}.patch")
+                                                            patch_path)
                 if patching_result:
                     patches_applied[k_cve['id']] += 1
+                    # TODO сдеоать проверку на версию ОС. Плюс проверять, есть ли папка вообще
+                    # Path(patch_path).rename(f"{PATCH_PATH}/patches-{self.kernel_73}/RO_0001_kernel-lt-5.15.87_CVE-2023-28464_99293.patch")
         # TODO сделать привязку тега и redmine'ского fixed_version_id
         if issues:
             issues += f"\nОценить уязвимость текущей версии ядра {self.kernel_73} для os73 \n"
