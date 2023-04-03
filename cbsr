@@ -41,14 +41,14 @@ NIST_END = "pubEndDate"
 
 # TODO поменять, так как привязано к моей машине
 KERNEL_PATH = "/home/tenebrae/devel/tracker/kernel/src"
-PATCH_PATH = "/home/tenebrae/devel/tracker/kernel/patches"
+DEST_PATCH_PATH = "/home/tenebrae/devel/tracker/kernel/patches"
+DEST_ISSUE_PATH = "/home/tenebrae/devel/tracker/kernel/issues/current"
 
-PATCHES_PATH = f"{os.getcwd()}/output/patches"
-ISSUES_PATH = f"{os.getcwd()}/output/issues"
+TMP_PATCHES_PATH = f"{os.getcwd()}/output/patches"
+TMP_ISSUES_PATH = f"{os.getcwd()}/output/issues"
 
 # Явки/пароли для трекера
 credentials = dotenv_values(".env")
-# REDMINE_URL = "http://10.81.0.88"
 REDMINE_URL = "https://tracker.red-soft.ru"
 
 group_id = credentials['TELEGRAM_GROUP_ID']
@@ -112,14 +112,23 @@ class CveChecker:
     @staticmethod
     def __prepare_dirs():
         """
-        Удаляем, если имелись, папки с задачами/патчами и создаем новые
+        Проверяем на существование требуемые папки
         """
-        if os.path.exists(PATCHES_PATH):
-            shutil.rmtree(PATCHES_PATH, ignore_errors=False, onerror=None)
-        if os.path.exists(ISSUES_PATH):
-            shutil.rmtree(ISSUES_PATH, ignore_errors=False, onerror=None)
-        os.makedirs(PATCHES_PATH)
-        os.makedirs(ISSUES_PATH)
+        if not os.path.exists(KERNEL_PATH):
+            global CHECK_PATCH
+            CHECK_PATCH = False
+            print("No kernel src directory exists")
+        if not os.path.exists(DEST_PATCH_PATH):
+            os.makedirs(DEST_PATCH_PATH)
+        if not os.path.exists(DEST_ISSUE_PATH):
+            os.makedirs(DEST_ISSUE_PATH)
+
+        if os.path.exists(TMP_PATCHES_PATH):
+            shutil.rmtree(TMP_PATCHES_PATH, ignore_errors=False, onerror=None)
+        if os.path.exists(TMP_ISSUES_PATH):
+            shutil.rmtree(TMP_ISSUES_PATH, ignore_errors=False, onerror=None)
+        os.makedirs(TMP_PATCHES_PATH)
+        os.makedirs(TMP_ISSUES_PATH)
 
     def __init__(self, days_to_check, recon_num):
         self.__prepare_dirs()
@@ -408,6 +417,51 @@ class CveChecker:
         )
         return issue.id
 
+    @staticmethod
+    def try_to_apply_patches(git_path, patch_path):
+        """
+        Пытаемся применить патч к требуемому дереву сорцов.
+        Возвращаем статус в случае успеха, None во всех прочих.
+        """
+        ps = subprocess.Popen("git status",
+                              shell=True,
+                              cwd=git_path,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT)
+        git_status = ps.communicate()[0].decode('utf-8')
+        if 'fatal: not a git repository' in git_status:
+            print("Not a git repository")
+            return None
+        elif 'Changes not staged for commit' in git_status:
+            print("Some untracked changes in git tree")
+            return None
+        elif 'Changes to be committed' in git_status:
+            print("Not commited files exists in tree")
+            return None
+        elif 'working tree clean' in git_status:
+            print("Working tree is fine")
+            ps = subprocess.Popen(f"patch -p 1 < {Path(patch_path)}",
+                                  shell=True,
+                                  cwd=git_path,
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT)
+            git_status = ps.communicate()[0].decode('utf-8')
+            subprocess.run(["git", "add", "."], cwd=git_path)
+            subprocess.run(['git', 'commit', '-m', 'tmp'], cwd=git_path)
+            subprocess.run(["git", "reset", "--hard", "HEAD~1"], cwd=git_path)
+            if 'FAILED' in git_status:
+                print("Patching failed")
+                return None
+            elif 'previously applied' in git_status:
+                print("Patch already exists in a tree")
+                return None
+            else:
+                print("Patching successful")
+                return git_status
+        else:
+            print("Unknown error")
+            return None
+
     def run(self):
         """
         Основной цикл
@@ -426,17 +480,16 @@ class CveChecker:
             patches_found += 1
             for i, patch in enumerate(k_cve['patch']):
                 patch_strs.append(patch['patch_text'])
-                patch_path = f"{PATCHES_PATH}/N{i}_{k_cve['id']}.patch"
+                patch_path = f"{TMP_PATCHES_PATH}/{k_cve['id']}.patch"
                 with open(patch_path, "w") as f:
                     f.write(patch['patch_text'])
                 # Пробуем применить патч к актуальной версии ядра
-                # TODO Сделать sanity check на существование файла
-                patching_result = self.try_to_apply_patches(self.kernel_73_path,
-                                                            patch_path)
-                if patching_result:
-                    patches_applied[k_cve['id']] += 1
-                    # TODO сдеоать проверку на версию ОС. Плюс проверять, есть ли папка вообще
-                    # Path(patch_path).rename(f"{PATCH_PATH}/patches-{self.kernel_73}/RO_0001_kernel-lt-5.15.87_CVE-2023-28464_99293.patch")
+                if CHECK_PATCH:
+                    patching_result = self.try_to_apply_patches(self.kernel_73_path,
+                                                                patch_path)
+                    if patching_result:
+                        patches_applied[k_cve['id']] += 1
+
         # TODO сделать привязку тега и redmine'ского fixed_version_id
         if issues:
             issues += f"\nОценить уязвимость текущей версии ядра {self.kernel_73} для os73 \n"
@@ -452,53 +505,13 @@ class CveChecker:
             issue_id = self.create_an_issue(issues,
                                             patches=patch_strs,
                                             multiple=(len(kernel_cves) > 1))
-            with open(f"{ISSUES_PATH}/issues-{issue_id}.md", "w") as f:
+            with open(f"{TMP_ISSUES_PATH}/issues-{issue_id}.md", "w") as f:
                 f.write(issues)
+
+            # TODO сделать проверку на версию ОС. Плюс проверять, есть ли папка вообще
+            # Path(patch_path).rename(f"{PATCH_PATH}/patches-{self.kernel_73}/RO_0001_kernel-lt-5.15.87_CVE-2023-28464_99293.patch")
             print(f"Создана задача № {issue_id}")
             print(f"{REDMINE_URL}/issues/{issue_id}")
-
-    @staticmethod
-    def try_to_apply_patches(git_path, patch_path):
-        """
-
-        """
-        os.chdir(Path(git_path))
-        ps = subprocess.Popen("git status",
-                              shell=True,
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT)
-        git_status = ps.communicate()[0].decode('utf-8')
-        if 'fatal: not a git repository' in git_status:
-            print("Not a git repository")
-            return None
-        elif 'Changes not staged for commit' in git_status:
-            print("Some untracked changes in git tree")
-            return None
-        elif 'Changes to be committed' in git_status:
-            print("Not commited files exists in tree")
-            return None
-        elif 'working tree clean' in git_status:
-            print("Working tree is fine")
-            ps = subprocess.Popen(f"patch -p 1 < {Path(patch_path)}",
-                                  shell=True,
-                                  stdout=subprocess.PIPE,
-                                  stderr=subprocess.STDOUT)
-            git_status = ps.communicate()[0].decode('utf-8')
-            subprocess.run(["git", "add", "."])
-            subprocess.run(['git', 'commit', '-m', 'tmp'])
-            subprocess.run(["git", "reset", "--hard", "HEAD~1"])
-            if 'FAILED' in git_status:
-                print("Patching failed")
-                return None
-            elif 'previously applied' in git_status:
-                print("Patch already exists in a tree")
-                return None
-            else:
-                print("Patching successful")
-                return git_status
-        else:
-            print("Unknown error")
-            return None
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -526,20 +539,6 @@ def parse_args():
         help="Количество дней за которые смотрим уязвимости. Считаем от текущего"
     )
     parser.add_argument(
-        '-t',
-        '--tracker',
-        type=int,
-        default=1,
-        help="Создаем тему или нет. Значения 0 или 1"
-    )
-    parser.add_argument(
-        '-s',
-        '--send',
-        type=int,
-        default=1,
-        help="Посылаем тему в телегу или нет. Значения 0 или 1"
-    )
-    parser.add_argument(
         '-e',
         '--exists',
         type=int,
@@ -555,6 +554,27 @@ def parse_args():
         help="Включить приблизительную оценку важности уязвимости с помощью нейросети."
              "Качество не впечатляет"
     )
+    parser.add_argument(
+        '-p',
+        '--patch-check',
+        type=int,
+        default=1,
+        help="Проверять патч на локальных сорцах ядра требуемой версии"
+    )
+    parser.add_argument(
+        '-s',
+        '--send',
+        type=int,
+        default=1,
+        help="Посылаем тему в телегу или нет. Значения 0 или 1"
+    )
+    parser.add_argument(
+        '-t',
+        '--tracker',
+        type=int,
+        default=1,
+        help="Создаем тему или нет. Значения 0 или 1"
+    )
 
     return parser.parse_args()
 
@@ -564,6 +584,7 @@ if __name__ == '__main__':
     DAYS_TO_CHECK = arguments.day
     SEND_TO_TELEGRAM = bool(arguments.send)
     CHECK_REDMINE = bool(arguments.exists)
+    CHECK_PATCH = bool(arguments.patch_check)
     CREATE_AN_ISSUE = bool(arguments.tracker) and CHECK_REDMINE
     AI_SCORE = bool(arguments.neural)
 
