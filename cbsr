@@ -3,7 +3,7 @@
 import re
 import os
 import koji
-import json
+# import json
 import shutil
 import urllib3
 import vulners
@@ -19,10 +19,8 @@ from pathlib import Path
 import urllib.parse as parse
 from bs4 import BeautifulSoup
 from redminelib import Redmine
-from collections import Counter
 from dotenv import dotenv_values
 from datetime import timedelta, date
-from requests.structures import CaseInsensitiveDict
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -38,6 +36,11 @@ NIST_CVE = "cveId"
 NIST_REJ = "noRejected"
 NIST_START = "pubStartDate"
 NIST_END = "pubEndDate"
+
+P_FAILED = -1
+P_APPLIED = -2
+P_NOFILE = -3
+P_SUCCESS = 0
 
 # TODO поменять, так как привязано к моей машине
 KERNEL_PATH = "/home/tenebrae/devel/tracker/kernel/src"
@@ -418,49 +421,70 @@ class CveChecker:
         return issue.id
 
     @staticmethod
-    def try_to_apply_patches(git_path, patch_path):
-        """
-        Пытаемся применить патч к требуемому дереву сорцов.
-        Возвращаем статус в случае успеха, None во всех прочих.
-        """
+    def is_src_tree_fine(src_path) -> bool:
         ps = subprocess.Popen("git status",
                               shell=True,
-                              cwd=git_path,
+                              cwd=src_path,
                               stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT)
         git_status = ps.communicate()[0].decode('utf-8')
         if 'fatal: not a git repository' in git_status:
             print("Not a git repository")
-            return None
+            return False
         elif 'Changes not staged for commit' in git_status:
             print("Some untracked changes in git tree")
-            return None
+            return False
         elif 'Changes to be committed' in git_status:
             print("Not commited files exists in tree")
-            return None
+            return False
         elif 'working tree clean' in git_status:
-            print("Working tree is fine")
-            ps = subprocess.Popen(f"patch -p 1 < {Path(patch_path)}",
-                                  shell=True,
-                                  cwd=git_path,
-                                  stdout=subprocess.PIPE,
-                                  stderr=subprocess.STDOUT)
-            git_status = ps.communicate()[0].decode('utf-8')
-            subprocess.run(["git", "add", "."], cwd=git_path)
-            subprocess.run(['git', 'commit', '-m', 'tmp'], cwd=git_path)
-            subprocess.run(["git", "reset", "--hard", "HEAD~1"], cwd=git_path)
-            if 'FAILED' in git_status:
-                print("Patching failed")
-                return None
-            elif 'previously applied' in git_status:
-                print("Patch already exists in a tree")
-                return None
-            else:
-                print("Patching successful")
-                return git_status
+            return True
         else:
             print("Unknown error")
-            return None
+            return False
+
+    @staticmethod
+    def reset_git_tree(src_path):
+        subprocess.run(["git", "add", "."],
+                       cwd=src_path,
+                       stdout=subprocess.DEVNULL)
+        subprocess.run(['git', 'commit', '-m', 'tmp'],
+                       cwd=src_path,
+                       stdout=subprocess.DEVNULL)
+        subprocess.run(["git", "reset", "--hard", "HEAD~1"],
+                       cwd=src_path,
+                       stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL)
+
+    def apply_patches(self, src_path, patch_path) -> int:
+        """
+        Пытаемся применить патч к требуемому дереву сорцов.
+        Возвращает:
+        0 - успешно пропатчено
+        1 - применение патча не удалось
+        2 - патч уже присутствет в сорцах
+        3 - файла, к которому применяется файл, нет в наличии
+        """
+        if not self.is_src_tree_fine(src_path):
+            print("Something wrong with src tree")
+            return P_FAILED
+
+        ps = subprocess.Popen(f"patch -p 1 < {patch_path}",
+                              shell=True,
+                              cwd=src_path,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT)
+        git_status = ps.communicate()[0].decode('utf-8')
+        self.reset_git_tree(src_path)
+        if 'FAILED' in git_status:
+            return P_FAILED
+        elif 'previously applied' in git_status:
+            return P_APPLIED
+        elif "can't find file" in git_status:
+            return P_NOFILE
+        else:
+            return P_SUCCESS
+
 
     def run(self):
         """
@@ -470,7 +494,7 @@ class CveChecker:
         issues = ""
         patch_strs = []
         patches_found = 0
-        patches_applied = Counter()
+        successful_patches_list = []
 
         kernel_cves = self.get_current_cves(*self.__get_dates())
         for k_cve in kernel_cves:
@@ -480,21 +504,29 @@ class CveChecker:
             patches_found += 1
             for i, patch in enumerate(k_cve['patch']):
                 patch_strs.append(patch['patch_text'])
-                patch_path = f"{TMP_PATCHES_PATH}/{k_cve['id']}.patch"
+                patch_path = f"{TMP_PATCHES_PATH}/000{i + 1}_{k_cve['id']}.patch"
                 with open(patch_path, "w") as f:
                     f.write(patch['patch_text'])
                 # Пробуем применить патч к актуальной версии ядра
                 if CHECK_PATCH:
-                    patching_result = self.try_to_apply_patches(self.kernel_73_path,
-                                                                patch_path)
-                    if patching_result:
-                        patches_applied[k_cve['id']] += 1
+                    patching_result = self.apply_patches(self.kernel_73_path, 
+                                                         patch_path)
+                    issues += "Актуальность патча:\n"
+                    if patching_result == P_FAILED:
+                        issues += "* Не удалось применить\n"
+                    elif patching_result == P_APPLIED:
+                        issues += "* Уже применен\n"
+                    elif patching_result == P_NOFILE:
+                        issues += "* Нет файла для применения\n"
+                    elif patching_result == P_SUCCESS:
+                        issues += "* Применен успешно\n"
+                        successful_patches_list.append((patch_path, k_cve['id']))
+
 
         # TODO сделать привязку тега и redmine'ского fixed_version_id
         if issues:
             issues += f"\nОценить уязвимость текущей версии ядра {self.kernel_73} для os73 \n"
             print(f"Patches found: {patches_found}\n")
-            print(f"Patches applied: {patches_applied}\n")
             print(issues)
 
         if issues and SEND_TO_TELEGRAM:
@@ -505,11 +537,16 @@ class CveChecker:
             issue_id = self.create_an_issue(issues,
                                             patches=patch_strs,
                                             multiple=(len(kernel_cves) > 1))
-            with open(f"{TMP_ISSUES_PATH}/issues-{issue_id}.md", "w") as f:
+            issue_path = f"{TMP_ISSUES_PATH}/issues-{issue_id}.md"
+            with open(issue_path, "w") as f:
                 f.write(issues)
 
-            # TODO сделать проверку на версию ОС. Плюс проверять, есть ли папка вообще
-            # Path(patch_path).rename(f"{PATCH_PATH}/patches-{self.kernel_73}/RO_0001_kernel-lt-5.15.87_CVE-2023-28464_99293.patch")
+            Path(issue_path).rename(f"{DEST_ISSUE_PATH}/issues-{issue_id}.md")
+
+            if successful_patches_list:
+                for i, item in enumerate(successful_patches_list):
+                    Path(item[0]).rename(f"{DEST_PATCH_PATH}/patches-{self.kernel_73}/000{i}_kernel-lt-{self.kernel_73}_{item[1]}_{issue_id}.patch")
+                pass
             print(f"Создана задача № {issue_id}")
             print(f"{REDMINE_URL}/issues/{issue_id}")
 
