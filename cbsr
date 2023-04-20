@@ -331,8 +331,7 @@ class CveChecker:
         date1 = '2023-03-01T00:00:00.000-05:00'
         date2 = '2023-03-02T23:59:59.999-05:00'
         """
-        cve_list = []
-        cve_id_list = []
+        cve_list, cve_id_list, manual_check = [], [], []
         kernel_cve_count, exists_count = 0, 0
 
         # Получим response
@@ -361,7 +360,7 @@ class CveChecker:
             if check_result == IsKernel.NO:
                 continue
             elif check_result == IsKernel.MAYBE:
-                print(f"Check manually: {cve_id}")
+                manual_check.append(cve_id)
                 continue
 
             kernel_cve_count += 1
@@ -394,6 +393,7 @@ class CveChecker:
             cve_list.append(result)
         print(f"Kernel CVE: {kernel_cve_count}")
         print(f"CVE list: {', '.join(cve_id_list)}")
+        print(f"Manual check: {', '.join(manual_check)}")
         print(f"CVE existed on a tracker: {exists_count}")
         return cve_list
 
