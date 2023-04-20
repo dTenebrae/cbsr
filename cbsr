@@ -3,17 +3,15 @@
 import re
 import os
 import koji
-# import json
+import json
 import shutil
 import urllib3
 import vulners
-import telebot
-from telebot import types
 import requests
 import argparse
 import subprocess
 import redminelib
-from io import BytesIO
+# from io import BytesIO
 from time import sleep
 from pathlib import Path
 import urllib.parse as parse
@@ -489,6 +487,21 @@ class CveChecker:
         else:
             return P_SUCCESS
 
+    @staticmethod
+    def send_to_telegram(message: str) -> dict:
+        """
+        Послать заготовку темы в телеграм
+        :param message: строка, которую посылаем
+        :return: Возвращает ответ от телеги в случае успеха
+        """
+        group_id = credentials['TELEGRAM_GROUP_ID']
+        bot_token = credentials['BOT_TOKEN']
+        send_command = f"curl -s --data 'text={message}' --data 'chat_id={group_id}' " \
+                       f"'https://api.telegram.org/bot'{bot_token}'/sendMessage'"
+        ps = subprocess.Popen(send_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        result = ps.communicate()[0].decode('utf-8')
+        # TODO сделать try-except
+        return json.loads(result)
 
     def run(self):
         """
@@ -536,9 +549,7 @@ class CveChecker:
             print(f"Patches found: {patches_found}\n")
             print(issues)
 
-        if issues and SEND_TO_TELEGRAM:
-            send_to_telegram(issues)
-            print(bot.polling())
+
 
         if CREATE_AN_ISSUE and kernel_cves and self.redmine and self.__user_wants_create_issue():
             issue_id = self.create_an_issue(issues,
@@ -555,20 +566,11 @@ class CveChecker:
                     Path(item[0]).rename(f"{DEST_PATCH_PATH}/patches-{self.kernel_73}/000{i}_kernel-lt-{self.kernel_73}_{item[1]}_{issue_id}.patch")
                 pass
             print(f"Создана задача № {issue_id}")
-            print(f"{REDMINE_URL}/issues/{issue_id}")
+            issue_url = f"{REDMINE_URL}/issues/{issue_id}"
+            print(issue_url)
 
-
-@bot.callback_query_handler(func=lambda call: True)
-def handle_query(call):
-    return True if call.data == 'yes' else False
-
-
-def send_to_telegram(msg: str):
-    markup = types.InlineKeyboardMarkup(row_width=3)
-    btn1 = types.InlineKeyboardButton("Создать", callback_data="yes")
-    btn2 = types.InlineKeyboardButton("Отмена", callback_data="no")
-    markup.add(btn1, btn2)
-    bot.send_message(group_id, text=msg, reply_markup=markup)
+            if SEND_TO_TELEGRAM:
+                self.send_to_telegram(issue_url)
 
 
 def parse_args():
