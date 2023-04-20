@@ -466,16 +466,20 @@ class CveChecker:
         3 - файла, к которому применяется файл, нет в наличии
         """
         if not self.is_src_tree_fine(src_path):
+            print("Trying to reset source tree")
+            self.reset_git_tree(src_path)
+
+        if not self.is_src_tree_fine(src_path):
             print("Something wrong with src tree")
             return P_FAILED
 
-        ps = subprocess.Popen(f"patch -p 1 < {patch_path}",
+        ps = subprocess.Popen(f"patch -p 1 --dry-run < {patch_path}",
                               shell=True,
                               cwd=src_path,
                               stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT)
         git_status = ps.communicate()[0].decode('utf-8')
-        self.reset_git_tree(src_path)
+        # self.reset_git_tree(src_path)
         if 'FAILED' in git_status:
             return P_FAILED
         elif 'previously applied' in git_status:
@@ -525,7 +529,10 @@ class CveChecker:
 
         # TODO сделать привязку тега и redmine'ского fixed_version_id
         if issues:
-            issues += f"\nОценить уязвимость текущей версии ядра {self.kernel_73} для os73 \n"
+            if self.kernel_72 == self.kernel_73:
+                issues += f"\nОценить уязвимость текущей версии ядра {self.kernel_73}\n"
+            else:
+                issues += f"\nОценить уязвимость ядер версий {self.kernel_72} и {self.kernel_73}\n"
             print(f"Patches found: {patches_found}\n")
             print(issues)
 
