@@ -276,6 +276,17 @@ class CveChecker:
             'patch_text': patch_txt,
         }
 
+    @staticmethod
+    def is_kernel_issue(desc, links) -> bool:
+        """
+        Проверка на то, что уязвимость относится к ядреной
+        """
+        desc = desc.lower()
+        if ('linux kernel' not in desc) or ('android linux kernel' in desc):
+            return False
+        # TODO сделать обработчик URLов
+        return True
+
     def get_current_cves(self, date_from: str, date_to: str) -> list:
         """
         Соберем все cve между датами.
@@ -306,10 +317,10 @@ class CveChecker:
             patch, scores = [], {}
             cve_id = cve['cve']['id']
             desc = cve['cve']['descriptions'][0]['value']
+            links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
             # TODO сделать для всех видов пакетов
-            # TODO Сделать функцию для проверки на принадлежность к ядреной уязвимости
-            if ('linux kernel' not in desc.lower()) or ('android linux kernel' in desc.lower()):
+            if not self.is_kernel_issue(desc, links):
                 continue
             kernel_cve_count += 1
 
@@ -319,8 +330,6 @@ class CveChecker:
                 exists_count += 1
                 continue
 
-            links = [link['url'] for link in cve['cve']['references']]
-            links = self.process_urls(links)
             for link in links:
                 patch_resp = self.__get_patches(link)
                 if patch_resp:
