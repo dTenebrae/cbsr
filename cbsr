@@ -11,6 +11,7 @@ import requests
 import argparse
 import subprocess
 import redminelib
+from enum import Enum
 # from io import BytesIO
 from time import sleep
 from pathlib import Path
@@ -64,6 +65,18 @@ HEADERS = {
 
 
 # ######################################################################
+class PatchResult(Enum):
+    FAILED = 1
+    ALREADY_APPLIED = 2
+    NO_FILE = 3
+    SUCCESS = 4
+
+
+class IsKernel(Enum):
+    NO = 1
+    MAYBE = 2
+    YES = 3
+
 
 class CveChecker:
     @staticmethod
@@ -277,15 +290,39 @@ class CveChecker:
         }
 
     @staticmethod
-    def is_kernel_issue(desc, links) -> bool:
+    def is_kernel_issue(desc, links) -> IsKernel:
         """
         Проверка на то, что уязвимость относится к ядреной
         """
         desc = desc.lower()
-        if ('linux kernel' not in desc) or ('android linux kernel' in desc):
-            return False
-        # TODO сделать обработчик URLов
-        return True
+
+        kernel_urls = [
+            'lore.kernel.org',
+            'git.kernel.org',
+            'lkml.org',
+            'bugzilla.redhat.com',
+            'bugzilla.suse.com',
+            'cdn.kernel.org',
+            'lkml.kernel.org',
+            'kernel.dance',
+            'lists.debian.org',
+            'www.debian.org',
+            'www.spinics.net',
+        ]
+
+        if ('linux' not in desc) or ('android linux kernel' in desc):
+            return IsKernel.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if (netloc == 'github.com' and path_first == 'torvalds') or (netloc in kernel_urls):
+                return IsKernel.YES
+
+        if 'linux kernel' in desc:
+            return IsKernel.MAYBE
+
+        return IsKernel.NO
 
     def get_current_cves(self, date_from: str, date_to: str) -> list:
         """
@@ -307,8 +344,8 @@ class CveChecker:
         url = self.__prepare_url(NIST_API_URL, params)
         nist_resp = self.__get_respone(url, bs=False, headers=HEADERS)
 
-        nist_json = nist_resp.json()
-        if not nist_json.get('vulnerabilities', ""):
+        nist_json = nist_resp.json() if nist_resp else None
+        if not nist_json or not nist_json.get('vulnerabilities', ""):
             return []
 
         total_res = nist_json['totalResults']
@@ -320,10 +357,14 @@ class CveChecker:
             links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
             # TODO сделать для всех видов пакетов
-            if not self.is_kernel_issue(desc, links):
+            check_result = self.is_kernel_issue(desc, links)
+            if check_result == IsKernel.NO:
                 continue
-            kernel_cve_count += 1
+            elif check_result == IsKernel.MAYBE:
+                print(f"Check manually: {cve_id}")
+                continue
 
+            kernel_cve_count += 1
             cve_id_list.append(cve_id)
             # Проверим, заведена ли уже задача по данной CVE
             if CHECK_REDMINE and self.is_cve_exists_rest_api(cve_id):
@@ -460,7 +501,7 @@ class CveChecker:
                        stdout=subprocess.DEVNULL,
                        stderr=subprocess.DEVNULL)
 
-    def apply_patches(self, src_path, patch_path) -> int:
+    def apply_patches(self, src_path, patch_path) -> PatchResult:
         """
         Пытаемся применить патч к требуемому дереву сорцов.
         Возвращает:
@@ -475,7 +516,7 @@ class CveChecker:
 
         if not self.is_src_tree_fine(src_path):
             print("Something wrong with src tree")
-            return P_FAILED
+            return PatchResult.FAILED
 
         ps = subprocess.Popen(f"patch -p 1 --dry-run < {patch_path}",
                               shell=True,
@@ -485,13 +526,13 @@ class CveChecker:
         git_status = ps.communicate()[0].decode('utf-8')
         # self.reset_git_tree(src_path)
         if 'FAILED' in git_status:
-            return P_FAILED
+            return PatchResult.FAILED
         elif 'previously applied' in git_status:
-            return P_APPLIED
+            return PatchResult.ALREADY_APPLIED
         elif "can't find file" in git_status:
-            return P_NOFILE
+            return PatchResult.NO_FILE
         else:
-            return P_SUCCESS
+            return PatchResult.SUCCESS
 
     @staticmethod
     def send_to_telegram(message: str) -> dict:
@@ -535,13 +576,13 @@ class CveChecker:
                     patching_result = self.apply_patches(self.kernel_73_path,
                                                          patch_path)
                     issues += "Актуальность патча:\n"
-                    if patching_result == P_FAILED:
+                    if patching_result == PatchResult.FAILED:
                         issues += "* Не удалось применить\n"
-                    elif patching_result == P_APPLIED:
+                    elif patching_result == PatchResult.ALREADY_APPLIED:
                         issues += "* Уже применен\n"
-                    elif patching_result == P_NOFILE:
+                    elif patching_result == PatchResult.NO_FILE:
                         issues += "* Нет файла для применения\n"
-                    elif patching_result == P_SUCCESS:
+                    elif patching_result == PatchResult.SUCCESS:
                         issues += "* Применен успешно\n"
                         successful_patches_list.append((patch_path, k_cve['id']))
 
