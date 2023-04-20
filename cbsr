@@ -435,7 +435,10 @@ class CveChecker:
         result += "---\n\n"
         return result
 
-    def create_an_issue(self, desc: str, patches: list, multiple=False):
+    def create_an_issue(self,
+                        desc: str,
+                        # patches: list,
+                        multiple=False):
         """
         Создает тему на трекере.
         * desc - Тело задачи
@@ -515,17 +518,12 @@ class CveChecker:
             print("Trying to reset source tree")
             self.reset_git_tree(src_path)
 
-        if not self.is_src_tree_fine(src_path):
-            print("Something wrong with src tree")
-            return PatchResult.FAILED
-
         ps = subprocess.Popen(f"patch -p 1 --dry-run < {patch_path}",
                               shell=True,
                               cwd=src_path,
                               stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT)
         git_status = ps.communicate()[0].decode('utf-8')
-        # self.reset_git_tree(src_path)
         if 'FAILED' in git_status:
             return PatchResult.FAILED
         elif 'previously applied' in git_status:
@@ -538,7 +536,7 @@ class CveChecker:
     @staticmethod
     def send_to_telegram(message: str) -> dict:
         """
-        Послать заготовку темы в телеграм
+        Послать строку в телеграм
         :param message: строка, которую посылаем
         :return: Возвращает ответ от телеги в случае успеха
         """
@@ -546,7 +544,10 @@ class CveChecker:
         bot_token = credentials['BOT_TOKEN']
         send_command = f"curl -s --data 'text={message}' --data 'chat_id={group_id}' " \
                        f"'https://api.telegram.org/bot'{bot_token}'/sendMessage'"
-        ps = subprocess.Popen(send_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        ps = subprocess.Popen(send_command,
+                              shell=True,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT)
         result = ps.communicate()[0].decode('utf-8')
         # TODO сделать try-except
         return json.loads(result)
@@ -587,7 +588,6 @@ class CveChecker:
                         issues += "* Применен успешно\n"
                         successful_patches_list.append((patch_path, k_cve['id']))
 
-        # TODO сделать привязку тега и redmine'ского fixed_version_id
         if issues:
             if self.kernel_72 == self.kernel_73:
                 issues += f"\nОценить уязвимость текущей версии ядра {self.kernel_73}\n"
@@ -598,7 +598,7 @@ class CveChecker:
 
         if CREATE_AN_ISSUE and kernel_cves and self.redmine and self.__user_wants_create_issue():
             issue_id = self.create_an_issue(issues,
-                                            patches=patch_strs,
+                                            # patches=patch_strs,
                                             multiple=(len(kernel_cves) > 1))
             issue_path = f"{TMP_ISSUES_PATH}/issues-{issue_id}.md"
             with open(issue_path, "w") as f:
