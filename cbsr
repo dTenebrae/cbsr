@@ -52,9 +52,6 @@ TMP_ISSUES_PATH = f"{os.getcwd()}/output/issues"
 credentials = dotenv_values(".env")
 REDMINE_URL = "https://tracker.red-soft.ru"
 
-group_id = credentials['TELEGRAM_GROUP_ID']
-bot = telebot.TeleBot(credentials['BOT_TOKEN'])
-
 HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,'
               'application/signed-exchange;v=b3;q=0.9',
@@ -526,7 +523,7 @@ class CveChecker:
                     f.write(patch['patch_text'])
                 # Пробуем применить патч к актуальной версии ядра
                 if CHECK_PATCH:
-                    patching_result = self.apply_patches(self.kernel_73_path, 
+                    patching_result = self.apply_patches(self.kernel_73_path,
                                                          patch_path)
                     issues += "Актуальность патча:\n"
                     if patching_result == P_FAILED:
@@ -539,7 +536,6 @@ class CveChecker:
                         issues += "* Применен успешно\n"
                         successful_patches_list.append((patch_path, k_cve['id']))
 
-
         # TODO сделать привязку тега и redmine'ского fixed_version_id
         if issues:
             if self.kernel_72 == self.kernel_73:
@@ -548,8 +544,6 @@ class CveChecker:
                 issues += f"\nОценить уязвимость ядер версий {self.kernel_72} и {self.kernel_73}\n"
             print(f"Patches found: {patches_found}\n")
             print(issues)
-
-
 
         if CREATE_AN_ISSUE and kernel_cves and self.redmine and self.__user_wants_create_issue():
             issue_id = self.create_an_issue(issues,
@@ -563,7 +557,9 @@ class CveChecker:
 
             if successful_patches_list:
                 for i, item in enumerate(successful_patches_list):
-                    Path(item[0]).rename(f"{DEST_PATCH_PATH}/patches-{self.kernel_73}/000{i}_kernel-lt-{self.kernel_73}_{item[1]}_{issue_id}.patch")
+                    Path(item[0]).rename(
+                        f"{DEST_PATCH_PATH}/patches-{self.kernel_73}/000{i}_kernel-lt-"
+                        f"{self.kernel_73}_{item[1]}_{issue_id}.patch")
                 pass
             print(f"Создана задача № {issue_id}")
             issue_url = f"{REDMINE_URL}/issues/{issue_id}"
@@ -585,54 +581,69 @@ def parse_args():
         help="Количество дней за которые смотрим уязвимости. Считаем от текущего"
     )
     parser.add_argument(
-        '-e',
         '--exists',
-        type=int,
-        default=1,
+        action='store_true',
         help="Проверяем, есть ли такая тема на трекере. В случае если не проверяем, "
-             "тема создаваться не будет. Значения 0 или 1"
+             "тема создаваться не будет."
+    )
+    parser.add_argument(
+        '--no-exists',
+        dest='exists',
+        action='store_false',
     )
     parser.add_argument(
         '-n',
         '--neural',
-        type=int,
-        default=0,
+        action='store_true',
         help="Включить приблизительную оценку важности уязвимости с помощью нейросети."
              "Качество не впечатляет"
     )
     parser.add_argument(
-        '-p',
         '--patch-check',
-        type=int,
-        default=1,
+        action='store_true',
         help="Проверять патч на локальных сорцах ядра требуемой версии"
     )
     parser.add_argument(
-        '-s',
-        '--send',
-        type=int,
-        default=1,
-        help="Посылаем тему в телегу или нет. Значения 0 или 1"
+        '--no-patch-check',
+        dest='patch_check',
+        action='store_false',
     )
     parser.add_argument(
-        '-t',
-        '--tracker',
-        type=int,
-        default=1,
-        help="Создаем тему или нет. Значения 0 или 1"
+        '--send',
+        action='store_true',
+        help="Посылаем тему в телегу или нет."
     )
-
+    parser.add_argument(
+        '--no-send',
+        dest='send',
+        action='store_false',
+    )
+    parser.add_argument(
+        '--tracker',
+        action='store_true',
+        help="Создаем тему или нет."
+    )
+    parser.add_argument(
+        '--no-tracker',
+        dest='tracker',
+        action='store_false',
+    )
+    parser.set_defaults(exists=True)
+    parser.set_defaults(tracker=True)
+    parser.set_defaults(patch_check=True)
+    parser.set_defaults(send=True)
+    parser.set_defaults(neural=False)
     return parser.parse_args()
 
 
 if __name__ == '__main__':
     arguments = parse_args()
     DAYS_TO_CHECK = arguments.day
-    SEND_TO_TELEGRAM = bool(arguments.send)
-    CHECK_REDMINE = bool(arguments.exists)
-    CHECK_PATCH = bool(arguments.patch_check)
-    CREATE_AN_ISSUE = bool(arguments.tracker) and CHECK_REDMINE
-    AI_SCORE = bool(arguments.neural)
+    SEND_TO_TELEGRAM = arguments.send
+    CHECK_REDMINE = arguments.exists
+    CHECK_PATCH = arguments.patch_check
+    CREATE_AN_ISSUE = arguments.tracker and CHECK_REDMINE
+    AI_SCORE = arguments.neural
 
     print(f"Checking CVE's for last: {DAYS_TO_CHECK} day(s)")
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON)
