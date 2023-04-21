@@ -141,7 +141,7 @@ class CveChecker:
         os.makedirs(TMP_PATCHES_PATH)
         os.makedirs(TMP_ISSUES_PATH)
 
-    def __init__(self, days_to_check, recon_num):
+    def __init__(self, days_to_check, recon_num, auto):
         self.__prepare_dirs()
         self.kernel_72, self.kernel_73 = self.__get_kernel()
         self.kernel_72_path, self.kernel_73_path = f"{KERNEL_PATH}/linux-{self.kernel_72}", \
@@ -151,6 +151,7 @@ class CveChecker:
         self.redmine = self.__redmine_auth()
         self.vulners = self.__vulners_auth()
         self.manual_check = []
+        self.auto = auto
 
     @staticmethod
     def __get_respone(*args, bs=True, parser='lxml', **kwargs):
@@ -597,28 +598,33 @@ class CveChecker:
             print(f"Patches found: {patches_found}\n")
             print(issues)
 
-        if CREATE_AN_ISSUE and kernel_cves and self.redmine and self.__user_wants_create_issue():
-            issue_id = self.create_an_issue(issues,
-                                            # patches=patch_strs,
-                                            multiple=(len(kernel_cves) > 1))
-            issue_path = f"{TMP_ISSUES_PATH}/issues-{issue_id}.md"
-            with open(issue_path, "w") as f:
-                f.write(issues)
+        if not (CREATE_AN_ISSUE and kernel_cves and self.redmine):
+            return
 
-            Path(issue_path).rename(f"{DEST_ISSUE_PATH}/issues-{issue_id}.md")
+        if not self.auto and not self.__user_wants_create_issue():
+            return
+        
+        issue_id = self.create_an_issue(issues,
+                                        # patches=patch_strs,
+                                        multiple=(len(kernel_cves) > 1))
+        issue_path = f"{TMP_ISSUES_PATH}/issues-{issue_id}.md"
+        with open(issue_path, "w") as f:
+            f.write(issues)
 
-            if successful_patches_list:
-                for i, item in enumerate(successful_patches_list):
-                    Path(item[0]).rename(
-                        f"{DEST_PATCH_PATH}/patches-{self.kernel_73}/000{i}_kernel-lt-"
-                        f"{self.kernel_73}_{item[1]}_{issue_id}.patch")
-                pass
-            print(f"Создана задача № {issue_id}")
-            issue_url = f"{REDMINE_URL}/issues/{issue_id}"
-            print(issue_url)
+        Path(issue_path).rename(f"{DEST_ISSUE_PATH}/issues-{issue_id}.md")
 
-            if SEND_TO_TELEGRAM:
-                self.send_to_telegram(f"Manual check: {', '.join(self.manual_check)}\nTracker URL: {issue_url}")
+        if successful_patches_list:
+            for i, item in enumerate(successful_patches_list):
+                Path(item[0]).rename(
+                    f"{DEST_PATCH_PATH}/patches-{self.kernel_73}/000{i}_kernel-lt-"
+                    f"{self.kernel_73}_{item[1]}_{issue_id}.patch")
+            pass
+        print(f"Создана задача № {issue_id}")
+        issue_url = f"{REDMINE_URL}/issues/{issue_id}"
+        print(issue_url)
+
+        if SEND_TO_TELEGRAM:
+            self.send_to_telegram(f"Manual check: {', '.join(self.manual_check)}\nTracker URL: {issue_url}")
 
 
 def parse_args():
@@ -647,7 +653,7 @@ def parse_args():
         '-n',
         '--neural',
         action='store_true',
-        help="Включить приблизительную оценку важности уязвимости с помощью нейросети."
+        help="Включить приблизительную оценку важности уязвимости с помощью нейросети. "
              "Качество не впечатляет"
     )
     parser.add_argument(
@@ -658,6 +664,16 @@ def parse_args():
     parser.add_argument(
         '--no-patch-check',
         dest='patch_check',
+        action='store_false',
+    )
+    parser.add_argument(
+        '--auto',
+        action='store_true',
+        help="Автоматическое создание темы или спрашиваем у юзера"
+    )
+    parser.add_argument(
+        '--no-auto',
+        dest='auto',
         action='store_false',
     )
     parser.add_argument(
@@ -682,6 +698,7 @@ def parse_args():
     )
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
+    parser.set_defaults(auto=True)
     parser.set_defaults(patch_check=True)
     parser.set_defaults(send=True)
     parser.set_defaults(neural=False)
@@ -696,7 +713,8 @@ if __name__ == '__main__':
     CHECK_PATCH = arguments.patch_check
     CREATE_AN_ISSUE = arguments.tracker and CHECK_REDMINE
     AI_SCORE = arguments.neural
+    AUTO = arguments.auto
 
     print(f"Checking CVE's for last: {DAYS_TO_CHECK} day(s)")
-    cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON)
+    cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON, AUTO)
     cve_checker.run()
