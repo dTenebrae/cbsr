@@ -432,7 +432,6 @@ class CveChecker:
             result += f"* {link}\n"
         result += f"\nИсточник:\n\n"
         result += f"* https://nvd.nist.gov/vuln/detail/{kernel_cve['id']}\n\n"
-        result += "---\n\n"
         return result
 
     def create_an_issue(self,
@@ -579,14 +578,16 @@ class CveChecker:
                                                          patch_path)
                     issues += "Актуальность патча:\n"
                     if patching_result == PatchResult.FAILED:
-                        issues += "* Не удалось применить\n"
+                        issues += "* Не удалось применить\n\n"
                     elif patching_result == PatchResult.ALREADY_APPLIED:
-                        issues += "* Уже применен\n"
+                        issues += "* Уже применен\n\n"
                     elif patching_result == PatchResult.NO_FILE:
-                        issues += "* Нет файла для применения\n"
+                        issues += "* Нет файла для применения\n\n"
                     elif patching_result == PatchResult.SUCCESS:
-                        issues += "* Применен успешно\n"
+                        issues += "* Применен успешно\n\n"
                         successful_patches_list.append((patch_path, k_cve['id']))
+
+            issues += "---\n\n"
 
         if issues:
             if self.kernel_72 == self.kernel_73:
