@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/home/tenebrae/devel/cbsr/venv/bin/python3
 
 import re
 import os
@@ -19,9 +19,10 @@ import urllib.parse as parse
 from bs4 import BeautifulSoup
 from redminelib import Redmine
 from dotenv import dotenv_values
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+os.chdir("/home/tenebrae/devel/cbsr/")
 
 # ############################ КОНСТАНТЫ #############################
 NUMBER_OF_RECON = 5
@@ -615,9 +616,9 @@ class CveChecker:
 
         if successful_patches_list:
             for i, item in enumerate(successful_patches_list):
-                Path(item[0]).rename(
-                    f"{DEST_PATCH_PATH}/patches-{self.kernel_73}/000{i}_kernel-lt-"
-                    f"{self.kernel_73}_{item[1]}_{issue_id}.patch")
+                dest_patch = f"{DEST_PATCH_PATH}/patches-{self.kernel_73}/000{i}_kernel-lt-{self.kernel_73}_{item[1]}_{issue_id}.patch"
+                Path(item[0]).rename(dest_patch)
+                print(f"Patch created: {dest_patch}")
             pass
         print(f"Создана задача № {issue_id}")
         issue_url = f"{REDMINE_URL}/issues/{issue_id}"
@@ -715,6 +716,7 @@ if __name__ == '__main__':
     AI_SCORE = arguments.neural
     AUTO = arguments.auto
 
+    print(f"Current time: {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
     print(f"Checking CVE's for last: {DAYS_TO_CHECK} day(s)")
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON, AUTO)
     cve_checker.run()
