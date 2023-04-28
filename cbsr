@@ -720,3 +720,4 @@ if __name__ == '__main__':
     print(f"Checking CVE's for last: {DAYS_TO_CHECK} day(s)")
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON, AUTO)
     cve_checker.run()
+    print(80 * "-")
