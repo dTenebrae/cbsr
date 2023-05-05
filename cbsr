@@ -155,7 +155,7 @@ class CveChecker:
         self.auto = auto
 
     @staticmethod
-    def __get_respone(*args, bs=True, parser='lxml', **kwargs):
+    def get_response(*args, bs=True, parser='lxml', **kwargs):
         """
         Получим ответ по url
         * bs - вернуть как soup или обычные response
@@ -192,12 +192,12 @@ class CveChecker:
         # посчитается как существующая
         exact_search_re = re.compile(fr"\b{cve}\b", re.I)
 
-        resp = self.__get_respone(url,
-                                  bs=True,
-                                  parser='xml',
-                                  headers=HEADERS,
-                                  auth=(credentials['REDMINE_USER'], credentials['REDMINE_PASSWORD'])
-                                  )
+        resp = self.get_response(url,
+                                 bs=True,
+                                 parser='xml',
+                                 headers=HEADERS,
+                                 auth=(credentials['REDMINE_USER'], credentials['REDMINE_PASSWORD'])
+                                 )
         # Найдем, сколько раз CVE встречается в поиске
         f_count = resp.find("results").get("total_count")
         try:
@@ -272,7 +272,7 @@ class CveChecker:
 
         # Получим response
         new_url = f'{url}.patch'
-        patch_resp = self.__get_respone(new_url, bs=True, headers=HEADERS)
+        patch_resp = self.get_response(new_url, bs=True, headers=HEADERS)
         # sanity check
         if not patch_resp:
             return {}
@@ -375,15 +375,31 @@ class CveChecker:
             NIST_CVE: cve_id,
         }
         url = self.__prepare_url(NIST_API_URL, params)
-        nist_resp = self.__get_respone(url, bs=False, headers=HEADERS)
+        nist_resp = self.get_response(url, bs=False, headers=HEADERS)
         nist_json = nist_resp.json() if nist_resp else None
         if not nist_json or not nist_json.get('vulnerabilities', ""):
             return {}
 
-        cve = nist_json.get('vulnerabilities')
-        desc = cve[0]['cve']['descriptions'][0]['value'].lower()
-        links = self.process_urls([link['url'] for link in cve[0]['cve']['references']])
-        return self.get_issue('unknown', cve[0], desc, links, check_patch=check_patch)
+        cve = nist_json.get('vulnerabilities')[0]
+        desc = cve['cve']['descriptions'][0]['value'].lower()
+        links = self.process_urls([link['url'] for link in cve['cve']['references']])
+
+        if self.is_vim_issue(desc, links) == IsXIssue.YES:
+
+            vim_ver_re = re.compile(r"\d\.\d\.\d+")
+            vuln_version = re.findall(vim_ver_re, desc)
+            vim_resp = self.get_response("https://github.com/vim/vim/tags", bs=False)
+            vim_source_list = re.findall(r"archive/refs/tags/[^/]+\.tar\.gz", vim_resp.text)
+            latest_vim = re.findall(vim_ver_re, vim_source_list[0])
+            print(f"https://github.com/vim/vim/{vim_source_list[0]}")
+
+        elif self.is_vim_issue(desc, links) == IsXIssue.NO:
+            print(2)
+
+        print(vuln_version, latest_vim)
+        print(1)
+
+        return self.get_issue('unknown', cve, desc, links, check_patch=check_patch)
 
     def get_current_cves(self, date_from: str, date_to: str) -> list:
         """
@@ -402,7 +418,7 @@ class CveChecker:
             NIST_END: date_to
         }
         url = self.__prepare_url(NIST_API_URL, params)
-        nist_resp = self.__get_respone(url, bs=False, headers=HEADERS)
+        nist_resp = self.get_response(url, bs=False, headers=HEADERS)
 
         nist_json = nist_resp.json() if nist_resp else None
         if not nist_json or not nist_json.get('vulnerabilities', ""):
@@ -486,7 +502,6 @@ class CveChecker:
         Возвращает ID темы
         """
         subject = 'Множественные уязвимости в ядре Linux' if multiple else 'Уязвимость в ядре Linux'
-        # TODO Сделать рабочее присоединение файлов
         issue = self.redmine.issue.create(
             project_id=297,  # 297 Уязвимости
             subject=subject,  # заголовок
