@@ -548,7 +548,7 @@ class CveChecker:
                 cve_list.append(self.get_issue('vim', cve, desc, links))
 
         print(f"Kernel CVE:               {kernel_cve_count}")
-        print(f"Vim CVE:                  {kernel_cve_count}")
+        print(f"Vim CVE:                  {vim_cve_count}")
         print(f"CVE list:                 {', '.join(cve_id_list)}")
         print(f"Kernel manual check:      {', '.join(self.manual_check)}")
         print(f"CVE existed on a tracker: {exists_count}")
