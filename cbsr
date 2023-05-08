@@ -370,7 +370,7 @@ class CveChecker:
         date_re = re.compile(r"Date:\s(.+)")
         fixes_re = re.compile(r"Fixes:\s([a-z0-9]+)")
         subject_re = re.compile(r"Subject:\s(.+)")
-        files_raw = re.findall(r"(?<=---)[\S\s]*?(?=diff)", patch_txt)[0].strip().split('\n')
+        files_raw = re.findall(r"(?<=\s-{3}\s)[\S\s]*?(?=diff)", patch_txt)[0].strip().split('\n')
 
         return {
             'date': date_re.search(patch_txt).group(1) if date_re.search(patch_txt) else None,
@@ -674,9 +674,9 @@ class CveChecker:
         2 - патч уже присутствет в сорцах
         3 - файла, к которому применяется файл, нет в наличии
         """
-        if not self.is_src_tree_fine(src_path):
-            print("Trying to reset source tree")
-            self.reset_git_tree(src_path)
+        # if not self.is_src_tree_fine(src_path):
+        #     print("Trying to reset source tree")
+        #     self.reset_git_tree(src_path)
 
         ps = subprocess.Popen(f"patch -p 1 --dry-run < {patch_path}",
                               shell=True,
