@@ -12,13 +12,13 @@ import argparse
 import subprocess
 import redminelib
 from enum import Enum
-# from io import BytesIO
 from time import sleep
 from pathlib import Path
 import urllib.parse as parse
 from bs4 import BeautifulSoup
 from redminelib import Redmine
 from dotenv import dotenv_values
+from pkg_resources import parse_version
 from datetime import timedelta, date, datetime
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -30,6 +30,7 @@ NUMBER_OF_RECON = 5
 OS72_TAG = "os72-updates"
 OS73_TAG = "os73-updates"
 KOJI_URL = "http://10.81.1.26/kojihub"
+REPO_PATH = '/mnt/ssd/koji/packages'
 
 NIST_API_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 NIST_CVE = "cveId"
@@ -43,7 +44,8 @@ P_NOFILE = -3
 P_SUCCESS = 0
 
 # TODO поменять, так как привязано к моей машине
-KERNEL_PATH = "/home/tenebrae/devel/tracker/kernel/src"
+KERNEL_PATH = f"{os.path.expanduser('.')}/src"
+# KERNEL_PATH = "/home/tenebrae/devel/tracker/kernel/src"
 DEST_PATCH_PATH = "/home/tenebrae/devel/tracker/kernel/patches"
 DEST_ISSUE_PATH = "/home/tenebrae/devel/tracker/kernel/issues/current"
 
@@ -80,26 +82,54 @@ class IsXIssue(Enum):
 
 
 class CveChecker:
-    @staticmethod
-    def __get_kernel():
+    def get_latest_rpm_data(self, package_name, tag_name, deep=True):
+        """
+        На входе получает имя пакета, на выходе отдает dict с информацией по нему
+        :param tag_name: Тег, в котором проверяем
+        :param package_name: Имя пакета
+        :param deep: Флаг, какую логику использовать для поиска последнего пакета.
+        В случае False будет брать последней по дате, что может быть не слишком удачным выбором
+        :return: dict с инфой по пакету в случае успеха, None в противном случае
+        """
+        if deep:
+            package_list_raw = self.session.listTagged(tag_name['id'], package=package_name)
+            # выделим старшую эпоху
+            epoch_list = [i['epoch'] for i in package_list_raw if i['epoch']]
+            latest_epoch = max(epoch_list) if epoch_list else None
+            latest_rpms = list(
+                filter(lambda x: x['epoch'] == latest_epoch, package_list_raw)) if latest_epoch else package_list_raw
+            # старшую версию
+            latest_version = max([i['version'] for i in latest_rpms], key=parse_version)
+            latest_rpms = list(filter(lambda x: x['version'] == latest_version, latest_rpms))
+            # и старший релиз
+            latest_release = max([i['release'].split('.')[0] for i in latest_rpms], key=parse_version)
+            package_list = list(filter(lambda x: x['release'].split('.')[0] == latest_release, latest_rpms))
+        else:
+            package_list = self.session.getLatestRPMS(tag_name['id'], arch='src', package=package_name)[1]
+
+        return package_list[0] if package_list else None
+
+    def __get_package_data(self):
         """
         Получаем версии ядра для требуемых тегов.
         """
-        package_basename = "kernel-lt"
-        session = koji.ClientSession(KOJI_URL)
-        kojitag72 = session.getTag(OS72_TAG)
-        kojitag73 = session.getTag(OS73_TAG)
+        kernel_basename = "kernel-lt"
+        vim_basename = 'vim'
+        self.kojitag72 = self.session.getTag(OS72_TAG)
+        self.kojitag73 = self.session.getTag(OS73_TAG)
 
         # Задел на будущее, список пакетов, с которым можно сравнивать упоминаемый в CVE
         # TODO Сделать универсальный парсер
         # os72_packages = session.getLatestBuilds(OS72_TAG)
         # os73_packages = session.getLatestBuilds(OS73_TAG)
 
-        package_list_72 = session.getLatestRPMS(kojitag72['id'], arch='src', package=package_basename)[1]
-        package_list_73 = session.getLatestRPMS(kojitag73['id'], arch='src', package=package_basename)[1]
-        package72 = package_list_72[0]['version'] if package_list_72 else None
-        package73 = package_list_73[0]['version'] if package_list_73 else None
-        return package72, package73
+        self.kernel_72 = self.get_latest_rpm_data(kernel_basename, self.kojitag72)['version']
+        self.kernel_73 = self.get_latest_rpm_data(kernel_basename, self.kojitag73)['version']
+        self.vim_72 = self.get_latest_rpm_data(vim_basename, self.kojitag72)['version']
+        self.vim_73 = self.get_latest_rpm_data(vim_basename, self.kojitag73)['version']
+
+        self.kernel_72_path, self.kernel_73_path = f"{KERNEL_PATH}/linux-{self.kernel_72}", \
+            f"{KERNEL_PATH}/linux-{self.kernel_73}"
 
     @staticmethod
     def __redmine_auth():
@@ -122,14 +152,58 @@ class CveChecker:
         return vulners_api
 
     @staticmethod
-    def __prepare_dirs():
+    def exec_bash(bash_cmd: str) -> str:
+        """
+        Простая обертка для выполнения bash-команд
+        :param bash_cmd: Команда в строковом формате
+        :return: Возвращает результат выполнения в UTF-8 кодировке
+        """
+        ps = subprocess.Popen(bash_cmd,
+                              shell=True,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL)
+        return ps.communicate()[0].decode('utf-8')
+
+    def download_kernel_src(self, kern_ver: str):
+        """
+        Качаем сорцы ядра требуемой версии и распаковываем
+        :param kern_ver: версия ядра
+        :return:
+        """
+        # TODO сделать под разные мажорные версии ядер
+        kern_src_url = f"https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-{kern_ver}.tar.xz"
+        kernel_src_filename = f"{KERNEL_PATH}/linux-{kern_ver}.tar.xz"
+
+        # Качаем архив
+        req = self.get_response(kern_src_url, bs=False)
+        with open(kernel_src_filename, "wb") as f:
+            for chunk in req.iter_content(100000):
+                f.write(chunk)
+
+        # Распаковываем в папку и удаляем архив
+        unpack_cmd = f"tar xf {kernel_src_filename} -C {KERNEL_PATH}"
+        rm_cmd = f"rm -f {kernel_src_filename}"
+        self.exec_bash(unpack_cmd)
+        self.exec_bash(rm_cmd)
+
+    def __prepare_dirs(self):
         """
         Проверяем на существование требуемые папки
         """
-        if not os.path.exists(KERNEL_PATH):
-            global CHECK_PATCH
-            CHECK_PATCH = False
-            print("No kernel src directory exists")
+        
+        # если нет сорцов для какой либо версии проверяемых ядер - скачиваем и распаковываем их
+        if self.kernel_72 == self.kernel_73:
+            if not os.path.exists(f"{KERNEL_PATH}/linux-{self.kernel_73}"):
+                print(f"Downloading sources for linux kernel {self.kernel_73}")
+                self.download_kernel_src(self.kernel_73)
+        else:
+            if not os.path.exists(f"{KERNEL_PATH}/linux-{self.kernel_72}"):
+                print(f"Downloading sources for linux kernel {self.kernel_72}")
+                self.download_kernel_src(self.kernel_72)
+            elif not os.path.exists(f"{KERNEL_PATH}/linux-{self.kernel_73}"):
+                print(f"Downloading sources for linux kernel {self.kernel_73}")
+                self.download_kernel_src(self.kernel_73)
+
         if not os.path.exists(DEST_PATCH_PATH):
             os.makedirs(DEST_PATCH_PATH)
         if not os.path.exists(DEST_ISSUE_PATH):
@@ -143,16 +217,16 @@ class CveChecker:
         os.makedirs(TMP_ISSUES_PATH)
 
     def __init__(self, days_to_check, recon_num, auto):
+        self.session = koji.ClientSession(KOJI_URL)
+        self.__get_package_data()
         self.__prepare_dirs()
-        self.kernel_72, self.kernel_73 = self.__get_kernel()
-        self.kernel_72_path, self.kernel_73_path = f"{KERNEL_PATH}/linux-{self.kernel_72}", \
-                                                   f"{KERNEL_PATH}/linux-{self.kernel_73}"
-        self.days_to_check = days_to_check
-        self.recon_num = recon_num
         self.redmine = self.__redmine_auth()
         self.vulners = self.__vulners_auth()
-        self.manual_check = []
+
+        self.days_to_check = days_to_check
+        self.recon_num = recon_num
         self.auto = auto
+        self.manual_check = []
 
     @staticmethod
     def get_response(*args, bs=True, parser='lxml', **kwargs):
@@ -260,7 +334,22 @@ class CveChecker:
         result = list(set(result))
         return result
 
-    def __get_patches(self, url: str) -> dict:
+    def get_rpm_path(self, rpm_name, tag_name):
+        """
+        Возвращает путь до физического расположения пакета на стапеле
+        :param tag_name: тег, в котором ищем пакет
+        :param rpm_name: Имя пакета
+        :return: Путь до файла в случае успеха, None в противном случае
+        """
+        package = self.get_latest_rpm_data(rpm_name, tag_name)
+        if not package:
+            return
+
+        src_path = f"{REPO_PATH}/{package['name']}/{package['version']}/{package['release']}" \
+                   f"/src/{package['nvr']}.src.rpm"
+        return src_path
+
+    def __get_kern_patches(self, url: str) -> dict:
         """
         Парсим патч по ссылке, в случае, если ссылка формата
         https://github.com/torvalds/linux/commit/**commit**
@@ -291,6 +380,25 @@ class CveChecker:
             'files': [file.split('|')[0].strip() for file in files_raw[:-1]],
             'patch_text': patch_txt,
         }
+
+    def get_vim_data(self, desc):
+
+        vim_ver_re = re.compile(r"\d\.\d\.\d+")
+        vuln_ver = re.findall(vim_ver_re, desc)[0]
+        vim_resp = self.get_response("https://github.com/vim/vim/tags", bs=False)
+        vim_source_latest = re.findall(r"archive/refs/tags/[^/]+\.tar\.gz", vim_resp.text)[0]
+        latest_vim_ver = re.findall(vim_ver_re, vim_source_latest)[0]
+        print(f"https://github.com/vim/vim/{vim_source_latest}")
+
+        if parse_version(vuln_ver) >= parse_version(latest_vim_ver):
+            return
+
+        if parse_version(self.vim_73) > parse_version(vuln_ver):
+            # TODO выведем сообщение что у нас версия vim не подверженая уязвимости
+            return
+
+        print(self.get_rpm_path('vim', self.kojitag73))
+        print(1)
 
     @staticmethod
     def is_kernel_issue(desc, links) -> IsXIssue:
@@ -341,12 +449,21 @@ class CveChecker:
 
         return IsXIssue.NO
 
-    def get_issue(self, name, cve, desc, links, check_patch=True):
+    def get_issue(self, name, cve, desc, links, check_patch=True) -> dict:
+        """
+        Разбираем nist json на нужный нам словарь
+        :param name: имя пакета, по которому мы потом будем сортировать уязвимости
+        :param cve: json с уязвимостью
+        :param desc: вытащеное из него описание
+        :param links: обработаные URL'ы
+        :param check_patch: Будем вытаскивать патчи. Работает для ядра
+        :return: словарь с разобраным добром
+        """
         patch, scores = [], {}
 
         if check_patch:
             for link in links:
-                patch_resp = self.__get_patches(link)
+                patch_resp = self.__get_kern_patches(link)
                 if patch_resp:
                     patch.append(patch_resp)
 
@@ -385,19 +502,9 @@ class CveChecker:
         links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
         if self.is_vim_issue(desc, links) == IsXIssue.YES:
-
-            vim_ver_re = re.compile(r"\d\.\d\.\d+")
-            vuln_version = re.findall(vim_ver_re, desc)
-            vim_resp = self.get_response("https://github.com/vim/vim/tags", bs=False)
-            vim_source_list = re.findall(r"archive/refs/tags/[^/]+\.tar\.gz", vim_resp.text)
-            latest_vim = re.findall(vim_ver_re, vim_source_list[0])
-            print(f"https://github.com/vim/vim/{vim_source_list[0]}")
-
+            self.get_vim_data(desc)
         elif self.is_vim_issue(desc, links) == IsXIssue.NO:
-            print(2)
-
-        print(vuln_version, latest_vim)
-        print(1)
+            pass
 
         return self.get_issue('unknown', cve, desc, links, check_patch=check_patch)
 
@@ -493,6 +600,7 @@ class CveChecker:
 
     def create_an_issue(self,
                         desc: str,
+                        tag='kernel',
                         multiple=False):
         """
         Создает тему на трекере.
@@ -516,7 +624,7 @@ class CveChecker:
                            {'id': 133, 'value': ['143', '144']},  # 143, 144 - Редакция: Сертифицированная, Стандартная
                            ],
             tag_list=[
-                'kernel'  # Метка: kernel
+                tag  # Метка: например kernel
             ],
         )
         return issue.id
@@ -653,7 +761,7 @@ class CveChecker:
 
         if not self.auto and not self.__user_wants_create_issue():
             return
-        
+
         issue_id = self.create_an_issue(issues,
                                         multiple=(len(kernel_cves) > 1))
         issue_path = f"{TMP_ISSUES_PATH}/issues-{issue_id}.md"
