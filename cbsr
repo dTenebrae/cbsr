@@ -38,19 +38,11 @@ NIST_REJ = "noRejected"
 NIST_START = "pubStartDate"
 NIST_END = "pubEndDate"
 
-P_FAILED = -1
-P_APPLIED = -2
-P_NOFILE = -3
-P_SUCCESS = 0
-
 # TODO поменять, так как привязано к моей машине
 KERNEL_PATH = f"{os.path.expanduser('.')}/src"
-# KERNEL_PATH = "/home/tenebrae/devel/tracker/kernel/src"
 DEST_PATCH_PATH = "/home/tenebrae/devel/tracker/kernel/patches"
-DEST_ISSUE_PATH = "/home/tenebrae/devel/tracker/kernel/issues/current"
 
 TMP_PATCHES_PATH = f"{os.getcwd()}/output/patches"
-TMP_ISSUES_PATH = f"{os.getcwd()}/output/issues"
 
 # Явки/пароли для трекера
 credentials = dotenv_values(".env")
@@ -190,7 +182,9 @@ class CveChecker:
         """
         Проверяем на существование требуемые папки
         """
-        
+        if not os.path.exists(KERNEL_PATH):
+            os.makedirs(KERNEL_PATH)
+
         # если нет сорцов для какой либо версии проверяемых ядер - скачиваем и распаковываем их
         if self.kernel_72 == self.kernel_73:
             if not os.path.exists(f"{KERNEL_PATH}/linux-{self.kernel_73}"):
@@ -204,17 +198,13 @@ class CveChecker:
                 print(f"Downloading sources for linux kernel {self.kernel_73}")
                 self.download_kernel_src(self.kernel_73)
 
-        if not os.path.exists(DEST_PATCH_PATH):
-            os.makedirs(DEST_PATCH_PATH)
-        if not os.path.exists(DEST_ISSUE_PATH):
-            os.makedirs(DEST_ISSUE_PATH)
+        # if not os.path.exists(DEST_PATCH_PATH):
+        #     os.makedirs(DEST_PATCH_PATH)
+        # if not os.path.exists(DEST_ISSUE_PATH):
+        #     os.makedirs(DEST_ISSUE_PATH)
 
         if os.path.exists(TMP_PATCHES_PATH):
             shutil.rmtree(TMP_PATCHES_PATH, ignore_errors=False, onerror=None)
-        if os.path.exists(TMP_ISSUES_PATH):
-            shutil.rmtree(TMP_ISSUES_PATH, ignore_errors=False, onerror=None)
-        os.makedirs(TMP_PATCHES_PATH)
-        os.makedirs(TMP_ISSUES_PATH)
 
     def __init__(self, days_to_check, recon_num, auto):
         self.session = koji.ClientSession(KOJI_URL)
@@ -398,7 +388,6 @@ class CveChecker:
             return
 
         print(self.get_rpm_path('vim', self.kojitag73))
-        print(1)
 
     @staticmethod
     def is_kernel_issue(desc, links) -> IsXIssue:
@@ -501,11 +490,6 @@ class CveChecker:
         desc = cve['cve']['descriptions'][0]['value'].lower()
         links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
-        if self.is_vim_issue(desc, links) == IsXIssue.YES:
-            self.get_vim_data(desc)
-        elif self.is_vim_issue(desc, links) == IsXIssue.NO:
-            pass
-
         return self.get_issue('unknown', cve, desc, links, check_patch=check_patch)
 
     def get_current_cves(self, date_from: str, date_to: str) -> list:
@@ -516,7 +500,7 @@ class CveChecker:
         date2 = '2023-03-02T23:59:59.999-05:00'
         """
         cve_list, cve_id_list = [], []
-        kernel_cve_count, exists_count = 0, 0
+        kernel_cve_count, vim_cve_count, exists_count = 0, 0, 0
 
         # Получим response
         params = {
@@ -540,47 +524,55 @@ class CveChecker:
             links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
             # проверка на принадлежность уязвимости к интересным
-            check_result = self.is_kernel_issue(desc, links)
-            if check_result == IsXIssue.NO:
+            is_kernel = self.is_kernel_issue(desc, links)
+            if is_kernel == IsXIssue.YES:
+                kernel_cve_count += 1
+                cve_id_list.append(cve['cve']['id'])
+                # Проверим, заведена ли уже задача по данной CVE
+                if CHECK_REDMINE and self.is_cve_exists_rest_api(cve['cve']['id']):
+                    exists_count += 1
+                    continue
+                cve_list.append(self.get_issue('kernel', cve, desc, links))
                 continue
-            elif check_result == IsXIssue.MAYBE:
+
+            elif is_kernel == IsXIssue.MAYBE:
                 self.manual_check.append(cve['cve']['id'])
                 continue
 
-            kernel_cve_count += 1
-            cve_id_list.append(cve['cve']['id'])
-            # Проверим, заведена ли уже задача по данной CVE
-            if CHECK_REDMINE and self.is_cve_exists_rest_api(cve['cve']['id']):
-                exists_count += 1
-                continue
+            if self.is_vim_issue(desc, links) == IsXIssue.YES:
+                vim_cve_count += 1
+                cve_id_list.append(cve['cve']['id'])
+                if CHECK_REDMINE and self.is_cve_exists_rest_api(cve['cve']['id']):
+                    exists_count += 1
+                    continue
+                cve_list.append(self.get_issue('vim', cve, desc, links))
 
-            cve_list.append(self.get_issue('kernel', cve, desc, links))
-
-        print(f"Kernel CVE: {kernel_cve_count}")
-        print(f"CVE list: {', '.join(cve_id_list)}")
-        print(f"Manual check: {', '.join(self.manual_check)}")
+        print(f"Kernel CVE:               {kernel_cve_count}")
+        print(f"Vim CVE:                  {kernel_cve_count}")
+        print(f"CVE list:                 {', '.join(cve_id_list)}")
+        print(f"Kernel manual check:      {', '.join(self.manual_check)}")
         print(f"CVE existed on a tracker: {exists_count}")
         return cve_list
 
     @staticmethod
-    def get_issue_str(kernel_cve: dict) -> str:
+    def get_issue_str(cve: dict) -> str:
         """
         Формирует строку для последующего создания темы на трекере
         """
         result = ""
-        result += f"h5. Уязвимость {kernel_cve['id']}\n\n"
+        result += f"h5. Уязвимость {cve['id']}\n\n"
         result += f"Описание:\n"
-        result += f"{kernel_cve['description']}\n\n"
-        if kernel_cve['scores']:
+        result += f"{cve['description']}\n\n"
+        if cve['scores']:
             result += f'Важность:\n'
-            for k, v in kernel_cve['scores'].items():
+            for k, v in cve['scores'].items():
                 result += f"* *CVSS {k}: {v}*\n"
         elif AI_SCORE:
             result += f'Важность:\n'
-            result += f"* *AI Score: {kernel_cve['ai_score']}\n"
+            result += f"* *AI Score: {cve['ai_score']}\n"
             result += f"_Оценка - результат работы нейросети, поэтому является ознакомительной_"
-        if kernel_cve['patch']:
-            for item in kernel_cve['patch']:
+        if cve['patch']:
+            for item in cve['patch']:
                 result += f'\nДанные патча:\n\n'
                 result += f"* Дата: {item['date']}\n"
                 if item['fixes']:
@@ -592,10 +584,10 @@ class CveChecker:
                 for filename in item['files']:
                     result += f"* *{filename}*\n"
         result += f"\nСсылки:\n\n"
-        for link in kernel_cve['links']:
+        for link in cve['links']:
             result += f"* {link}\n"
         result += f"\nИсточник:\n\n"
-        result += f"* https://nvd.nist.gov/vuln/detail/{kernel_cve['id']}\n\n"
+        result += f"* https://nvd.nist.gov/vuln/detail/{cve['id']}\n\n"
         return result
 
     def create_an_issue(self,
@@ -630,53 +622,10 @@ class CveChecker:
         return issue.id
 
     @staticmethod
-    def is_src_tree_fine(src_path) -> bool:
-        ps = subprocess.Popen("git status",
-                              shell=True,
-                              cwd=src_path,
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT)
-        git_status = ps.communicate()[0].decode('utf-8')
-        if 'fatal: not a git repository' in git_status:
-            print("Not a git repository")
-            return False
-        elif 'Changes not staged for commit' in git_status:
-            print("Some untracked changes in git tree")
-            return False
-        elif 'Changes to be committed' in git_status:
-            print("Not commited files exists in tree")
-            return False
-        elif 'working tree clean' in git_status:
-            return True
-        else:
-            print("Unknown error")
-            return False
-
-    @staticmethod
-    def reset_git_tree(src_path):
-        subprocess.run(["git", "add", "."],
-                       cwd=src_path,
-                       stdout=subprocess.DEVNULL)
-        subprocess.run(['git', 'commit', '-m', 'tmp'],
-                       cwd=src_path,
-                       stdout=subprocess.DEVNULL)
-        subprocess.run(["git", "reset", "--hard", "HEAD~1"],
-                       cwd=src_path,
-                       stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL)
-
-    def apply_patches(self, src_path, patch_path) -> PatchResult:
+    def apply_patches(src_path, patch_path) -> PatchResult:
         """
         Пытаемся применить патч к требуемому дереву сорцов.
-        Возвращает:
-        0 - успешно пропатчено
-        1 - применение патча не удалось
-        2 - патч уже присутствет в сорцах
-        3 - файла, к которому применяется файл, нет в наличии
         """
-        # if not self.is_src_tree_fine(src_path):
-        #     print("Trying to reset source tree")
-        #     self.reset_git_tree(src_path)
 
         ps = subprocess.Popen(f"patch -p 1 --dry-run < {patch_path}",
                               shell=True,
@@ -692,6 +641,53 @@ class CveChecker:
             return PatchResult.NO_FILE
         else:
             return PatchResult.SUCCESS
+
+    def prepare_issue(self, cve_list, kernel_issue=False, check_patch=False):
+        """
+        Подготавливаем строки для создания задачи в трекере либо для печати в stdout
+        :param cve_list: список подготовленных словарей
+        :param kernel_issue: флаг, что уязвимости ядреные
+        :param check_patch: флаг, что мы хотим проверять патчи. Пока только для ядра
+        :return: возвращаем строку, список найденых патчей и удачных применений патчей
+        """
+        issues = ""
+        patches_found = 0
+        successful_patches_list = []
+
+        for single_cve in cve_list:
+            issues += self.get_issue_str(single_cve)
+
+            if not single_cve['patch'] and not check_patch:
+                continue
+            patches_found += 1
+            for i, patch in enumerate(single_cve['patch']):
+                patch_path = f"{TMP_PATCHES_PATH}/000{i + 1}_{single_cve['id']}.patch"
+                with open(patch_path, "w") as f:
+                    f.write(patch['patch_text'])
+                # Пробуем применить патч к актуальной версии ядра
+                if CHECK_PATCH:
+                    patching_result = self.apply_patches(self.kernel_73_path,
+                                                         patch_path)
+                    issues += "Актуальность патча:\n"
+                    if patching_result == PatchResult.FAILED:
+                        issues += "* Не удалось применить\n\n"
+                    elif patching_result == PatchResult.ALREADY_APPLIED:
+                        issues += "* Уже применен\n\n"
+                    elif patching_result == PatchResult.NO_FILE:
+                        issues += "* Нет файла для применения\n\n"
+                    elif patching_result == PatchResult.SUCCESS:
+                        issues += "* Применен успешно\n\n"
+                        successful_patches_list.append((patch_path, single_cve['id']))
+
+            issues += "---\n\n"
+
+        if issues and kernel_issue:
+            if self.kernel_72 == self.kernel_73:
+                issues += f"\nОценить уязвимость текущей версии ядра {self.kernel_73}\n"
+            else:
+                issues += f"\nОценить уязвимость ядер версий {self.kernel_72} и {self.kernel_73}\n"
+
+        return issues, patches_found, successful_patches_list
 
     @staticmethod
     def send_to_telegram(message: str) -> dict:
@@ -715,46 +711,19 @@ class CveChecker:
     def run(self):
         """
         Основной цикл
-        TODO разбить на функции, а то bloated
         """
-        issues = ""
-        patches_found = 0
-        successful_patches_list = []
 
-        kernel_cves = self.get_current_cves(*self.__get_dates())
-        for k_cve in kernel_cves:
-            issues += self.get_issue_str(k_cve)
-            if not k_cve['patch']:
-                continue
-            patches_found += 1
-            for i, patch in enumerate(k_cve['patch']):
-                patch_path = f"{TMP_PATCHES_PATH}/000{i + 1}_{k_cve['id']}.patch"
-                with open(patch_path, "w") as f:
-                    f.write(patch['patch_text'])
-                # Пробуем применить патч к актуальной версии ядра
-                if CHECK_PATCH:
-                    patching_result = self.apply_patches(self.kernel_73_path,
-                                                         patch_path)
-                    issues += "Актуальность патча:\n"
-                    if patching_result == PatchResult.FAILED:
-                        issues += "* Не удалось применить\n\n"
-                    elif patching_result == PatchResult.ALREADY_APPLIED:
-                        issues += "* Уже применен\n\n"
-                    elif patching_result == PatchResult.NO_FILE:
-                        issues += "* Нет файла для применения\n\n"
-                    elif patching_result == PatchResult.SUCCESS:
-                        issues += "* Применен успешно\n\n"
-                        successful_patches_list.append((patch_path, k_cve['id']))
+        all_cves = self.get_current_cves(*self.__get_dates())
+        kernel_cves = list(filter(lambda x: x['name'] == 'kernel', all_cves))
+        vim_cves = list(filter(lambda x: x['name'] == 'vim', all_cves))
 
-            issues += "---\n\n"
+        issues, patches_found, successful_patches_list = self.prepare_issue(kernel_cves,
+                                                                            kernel_issue=True,
+                                                                            check_patch=True
+                                                                            )
 
-        if issues:
-            if self.kernel_72 == self.kernel_73:
-                issues += f"\nОценить уязвимость текущей версии ядра {self.kernel_73}\n"
-            else:
-                issues += f"\nОценить уязвимость ядер версий {self.kernel_72} и {self.kernel_73}\n"
-            print(f"Patches found: {patches_found}\n")
-            print(issues)
+        print(f"Patches found: {patches_found}\n")
+        print(issues)
 
         if not (CREATE_AN_ISSUE and kernel_cves and self.redmine):
             return
@@ -762,13 +731,7 @@ class CveChecker:
         if not self.auto and not self.__user_wants_create_issue():
             return
 
-        issue_id = self.create_an_issue(issues,
-                                        multiple=(len(kernel_cves) > 1))
-        issue_path = f"{TMP_ISSUES_PATH}/issues-{issue_id}.md"
-        with open(issue_path, "w") as f:
-            f.write(issues)
-
-        Path(issue_path).rename(f"{DEST_ISSUE_PATH}/issues-{issue_id}.md")
+        issue_id = self.create_an_issue(issues, multiple=(len(kernel_cves) > 1))
 
         if successful_patches_list:
             for i, item in enumerate(successful_patches_list):
@@ -776,13 +739,52 @@ class CveChecker:
                              f"000{i}_kernel-lt-{self.kernel_73}_{item[1]}_{issue_id}.patch"
                 Path(item[0]).rename(dest_patch)
                 print(f"Patch created: {dest_patch}")
-            pass
+                
         print(f"Создана задача № {issue_id}")
         issue_url = f"{REDMINE_URL}/issues/{issue_id}"
         print(issue_url)
 
         if SEND_TO_TELEGRAM:
-            self.send_to_telegram(f"Manual check: {', '.join(self.manual_check)}\nTracker URL: {issue_url}")
+            self.send_to_telegram(f"Manual check:"
+                                  f" {', '.join(self.manual_check)}\nTracker URL: {issue_url}")
+
+
+# ##############################################################################
+
+# def is_src_tree_fine(src_path) -> bool:
+#     ps = subprocess.Popen("git status",
+#                           shell=True,
+#                           cwd=src_path,
+#                           stdout=subprocess.PIPE,
+#                           stderr=subprocess.STDOUT)
+#     git_status = ps.communicate()[0].decode('utf-8')
+#     if 'fatal: not a git repository' in git_status:
+#         print("Not a git repository")
+#         return False
+#     elif 'Changes not staged for commit' in git_status:
+#         print("Some untracked changes in git tree")
+#         return False
+#     elif 'Changes to be committed' in git_status:
+#         print("Not commited files exists in tree")
+#         return False
+#     elif 'working tree clean' in git_status:
+#         return True
+#     else:
+#         print("Unknown error")
+#         return False
+#
+#
+# def reset_git_tree(src_path):
+#     subprocess.run(["git", "add", "."],
+#                    cwd=src_path,
+#                    stdout=subprocess.DEVNULL)
+#     subprocess.run(['git', 'commit', '-m', 'tmp'],
+#                    cwd=src_path,
+#                    stdout=subprocess.DEVNULL)
+#     subprocess.run(["git", "reset", "--hard", "HEAD~1"],
+#                    cwd=src_path,
+#                    stdout=subprocess.DEVNULL,
+#                    stderr=subprocess.DEVNULL)
 
 
 def parse_args():
