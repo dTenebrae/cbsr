@@ -492,6 +492,34 @@ class CveChecker:
 
         return self.get_issue('unknown', cve, desc, links, check_patch=check_patch)
 
+    def check_cve(self,
+                  pkg_name,
+                  check_func,
+                  cve,
+                  desc,
+                  links,
+                  cve_data_list,
+                  cve_id_list,
+                  cve_count,
+                  exists_count
+                  ):
+
+        is_pkg = check_func(desc, links)
+        if is_pkg == IsXIssue.YES:
+            cve_count += 1
+            cve_id_list.append(cve['cve']['id'])
+            # Проверим, заведена ли уже задача по данной CVE
+            if CHECK_REDMINE and self.is_cve_exists_rest_api(cve['cve']['id']):
+                exists_count += 1
+                return cve_count, exists_count
+            cve_data_list.append(self.get_issue(pkg_name, cve, desc, links))
+            return cve_count, exists_count
+
+        elif is_pkg == IsXIssue.MAYBE:
+            self.manual_check.append(cve['cve']['id'])
+
+        return cve_count, exists_count
+
     def get_current_cves(self, date_from: str, date_to: str) -> list:
         """
         Соберем все cve между датами.
@@ -499,8 +527,14 @@ class CveChecker:
         date1 = '2023-03-01T00:00:00.000-05:00'
         date2 = '2023-03-02T23:59:59.999-05:00'
         """
-        cve_list, cve_id_list = [], []
-        kernel_cve_count, vim_cve_count, exists_count = 0, 0, 0
+        # TODO поменять на класс, enum или подобное
+        # названия, функция проверки на принадлежность, счетчик вхождений
+        pkg_check_data = [
+            ['kernel', self.is_kernel_issue, 0],
+            ['vim', self.is_vim_issue, 0]
+        ]
+        cve_data_list, cve_id_list = [], []
+        exists_count = 0
 
         # Получим response
         params = {
@@ -523,36 +557,24 @@ class CveChecker:
             desc = cve['cve']['descriptions'][0]['value'].lower()
             links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
-            # проверка на принадлежность уязвимости к интересным
-            is_kernel = self.is_kernel_issue(desc, links)
-            if is_kernel == IsXIssue.YES:
-                kernel_cve_count += 1
-                cve_id_list.append(cve['cve']['id'])
-                # Проверим, заведена ли уже задача по данной CVE
-                if CHECK_REDMINE and self.is_cve_exists_rest_api(cve['cve']['id']):
-                    exists_count += 1
-                    continue
-                cve_list.append(self.get_issue('kernel', cve, desc, links))
-                continue
+            for pkg in pkg_check_data:
+                pkg[2], exists_count = self.check_cve(pkg[0],
+                                                      pkg[1],
+                                                      cve,
+                                                      desc,
+                                                      links,
+                                                      cve_data_list,
+                                                      cve_id_list,
+                                                      pkg[2],
+                                                      exists_count)
 
-            elif is_kernel == IsXIssue.MAYBE:
-                self.manual_check.append(cve['cve']['id'])
-                continue
-
-            if self.is_vim_issue(desc, links) == IsXIssue.YES:
-                vim_cve_count += 1
-                cve_id_list.append(cve['cve']['id'])
-                if CHECK_REDMINE and self.is_cve_exists_rest_api(cve['cve']['id']):
-                    exists_count += 1
-                    continue
-                cve_list.append(self.get_issue('vim', cve, desc, links))
-
-        print(f"Kernel CVE:               {kernel_cve_count}")
-        print(f"Vim CVE:                  {vim_cve_count}")
+        for pkg in pkg_check_data:
+            # классная арифметическая конструкция - для вычисления пробелов
+            print(f"{pkg[0]} CVE:" + " " * (26 - (len(pkg[0]) + 5)) + f"{pkg[2]}")
         print(f"CVE list:                 {', '.join(cve_id_list)}")
         print(f"Kernel manual check:      {', '.join(self.manual_check)}")
         print(f"CVE existed on a tracker: {exists_count}")
-        return cve_list
+        return cve_data_list
 
     @staticmethod
     def get_issue_str(cve: dict) -> str:
