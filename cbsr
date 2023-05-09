@@ -516,7 +516,7 @@ class CveChecker:
             return []
 
         total_res = nist_json['totalResults']
-        print(f'Total CVE found: {total_res}')
+        print(f'Total CVE found:          {total_res}')
         for cve in nist_json.get('vulnerabilities'):
 
             # подготовим данные для проверки
@@ -591,9 +591,10 @@ class CveChecker:
         return result
 
     def create_an_issue(self,
+                        subject,
                         desc: str,
-                        tag='kernel',
-                        multiple=False):
+                        tag=None,
+                        ):
         """
         Создает тему на трекере.
         * desc - Тело задачи
@@ -601,7 +602,6 @@ class CveChecker:
         * multiple - Флаг для выбора названия темы
         Возвращает ID темы
         """
-        subject = 'Множественные уязвимости в ядре Linux' if multiple else 'Уязвимость в ядре Linux'
         issue = self.redmine.issue.create(
             project_id=297,  # 297 Уязвимости
             subject=subject,  # заголовок
@@ -683,7 +683,7 @@ class CveChecker:
 
         if issues and kernel_issue:
             if self.kernel_72 == self.kernel_73:
-                issues += f"\nОценить уязвимость текущей версии ядра {self.kernel_73}\n"
+                issues += f"\nОценить уязвимость ядра версии {self.kernel_73}\n"
             else:
                 issues += f"\nОценить уязвимость ядер версий {self.kernel_72} и {self.kernel_73}\n"
 
@@ -708,38 +708,39 @@ class CveChecker:
         # TODO сделать try-except
         return json.loads(result)
 
-    def run(self):
-        """
-        Основной цикл
-        """
+    def check_and_post(self, pkg_name, all_cves, is_kernel: bool, check_patch: bool):
+        pkg_cves = list(filter(lambda x: x['name'] == pkg_name, all_cves))
+        issues, patches_found, successful_patches_list = self.prepare_issue(pkg_cves,
+                                                                            kernel_issue=is_kernel,
+                                                                            check_patch=check_patch)
 
-        all_cves = self.get_current_cves(*self.__get_dates())
-        kernel_cves = list(filter(lambda x: x['name'] == 'kernel', all_cves))
-        vim_cves = list(filter(lambda x: x['name'] == 'vim', all_cves))
+        if check_patch:
+            print(f"{pkg_name} patches found:     {patches_found}\n")
+        if issues:
+            print(issues)
 
-        issues, patches_found, successful_patches_list = self.prepare_issue(kernel_cves,
-                                                                            kernel_issue=True,
-                                                                            check_patch=True
-                                                                            )
-
-        print(f"Patches found: {patches_found}\n")
-        print(issues)
-
-        if not (CREATE_AN_ISSUE and kernel_cves and self.redmine):
+        if not (CREATE_AN_ISSUE and pkg_cves and self.redmine):
             return
 
         if not self.auto and not self.__user_wants_create_issue():
             return
 
-        issue_id = self.create_an_issue(issues, multiple=(len(kernel_cves) > 1))
+        if is_kernel:
+            subject = 'Множественные уязвимости в ядре Linux' \
+                if (len(pkg_cves) > 1) else 'Уязвимость в ядре Linux'
+            issue_id = self.create_an_issue(subject=subject, desc=issues, tag=pkg_name)
+        else:
+            subject = f'Множественные уязвимости в {pkg_name}' \
+                if (len(pkg_cves) > 1) else f'Уязвимость в {pkg_name}'
+            issue_id = self.create_an_issue(subject=subject, desc=issues)
 
-        if successful_patches_list:
+        if is_kernel and check_patch and successful_patches_list:
             for i, item in enumerate(successful_patches_list):
                 dest_patch = f"{DEST_PATCH_PATH}/patches-{self.kernel_73}/" \
                              f"000{i}_kernel-lt-{self.kernel_73}_{item[1]}_{issue_id}.patch"
                 Path(item[0]).rename(dest_patch)
                 print(f"Patch created: {dest_patch}")
-                
+
         print(f"Создана задача № {issue_id}")
         issue_url = f"{REDMINE_URL}/issues/{issue_id}"
         print(issue_url)
@@ -747,6 +748,22 @@ class CveChecker:
         if SEND_TO_TELEGRAM:
             self.send_to_telegram(f"Manual check:"
                                   f" {', '.join(self.manual_check)}\nTracker URL: {issue_url}")
+
+    def run(self):
+        """
+        Основной цикл
+        """
+        # TODO переделать в класс, enum или нечто похожее
+        pkgs = [
+            ('kernel', True, True),
+            ('vim', False, False)
+        ]
+        all_cves = self.get_current_cves(*self.__get_dates())
+        for pkg in pkgs:
+            self.check_and_post(pkg[0],
+                                all_cves,
+                                is_kernel=pkg[1],
+                                check_patch=pkg[2])
 
 
 # ##############################################################################
@@ -887,7 +904,7 @@ if __name__ == '__main__':
         print(cve_checker.get_issue_str(one_cve))
         exit(0)
 
-    print(f"Current time: {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
-    print(f"Checking CVE's for last: {DAYS_TO_CHECK} day(s)")
+    print(f"Current time:             {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
+    print(f"Checking CVE's for last:  {DAYS_TO_CHECK} day(s)")
     cve_checker.run()
     print(80 * "-")
