@@ -289,7 +289,44 @@ class CveChecker:
             return False
 
     def find_all_issues(self):
+        """
+        Сканируем трекер, собираем большинство уязвимостей и возвращаем Counter из них
+        """
+        def title_strip(title):
+            regex1 = re.compile(r"уязвимость в (.+)$", re.I)
+            regex2 = re.compile(r"уязвимость: (.+)$", re.I)
+            title_reg = re.findall(regex1, title.text)
+            title_reg.extend(re.findall(regex2, title.text))
+            if title_reg:
+                return title_reg[0].strip().lower()
+
+        def kernel_str(str_to_check: str) -> str:
+            kw_list = [
+                'ядро linux',
+                'ядру linux',
+                'ядра linux',
+                'ядре linux',
+                'linux-ядра',
+            ]
+            for item in kw_list:
+                if item in str_to_check:
+                    return 'linux kernel'
+            return str_to_check
+
+        def firefox_str(str_to_check: str) -> str:
+            return 'firefox' if 'firefox' in str_to_check else str_to_check
+
+        def systemd_str(str_to_check: str) -> str:
+            return 'systemd' if 'systemd' in str_to_check else str_to_check
+
+        filter_funcs = [
+            kernel_str,
+            firefox_str,
+            systemd_str,
+        ]
+
         limit = 100
+        # для того, чтобы пройти все страницы с найденными темами потребуется счетчик для оффсета
         cnt = 0
         result = []
         while True:
@@ -304,14 +341,16 @@ class CveChecker:
                                      )
             titles = resp.find_all("title")
             t_count = len(titles)
-            regex = re.compile(r"уязвимость в (.+)$", re.I)
-            result.extend(list(
-                map(lambda x: re.findall(regex, x.text)[0].strip() if re.findall(regex, x.text) else None, titles)))
+            result.extend(list(map(title_strip, titles)))
             result = list(filter(lambda x: x is not None, result))
+            for func in filter_funcs:
+                result = list(map(func, result))
             cnt += limit
             if t_count < limit:
                 break
-        return Counter(result)
+
+        for item in Counter(result).most_common(20):
+            print(f"{item[0]:<17} {item[1]:>5}")
 
     @staticmethod
     def __user_wants_create_issue() -> bool:
@@ -906,8 +945,7 @@ if __name__ == '__main__':
         print(cve_checker.get_issue_str(one_cve))
         exit(0)
     if STAT:
-        stats = cve_checker.find_all_issues()
-        print(stats)
+        cve_checker.find_all_issues()
         exit(0)
     cve_checker.find_all_issues()
     print(f"Current time:             {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
