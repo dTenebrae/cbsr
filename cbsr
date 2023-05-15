@@ -42,6 +42,7 @@ NIST_END = "pubEndDate"
 # TODO поменять, так как привязано к моей машине
 KERNEL_PATH = f"{os.path.expanduser('.')}/src"
 DEST_PATCH_PATH = "/home/tenebrae/devel/tracker/kernel/patches"
+USERS_LIST = f"{os.path.expanduser('.')}/users.json"
 
 TMP_PATCHES_PATH = f"{os.getcwd()}/output/patches"
 
@@ -186,6 +187,9 @@ class CveChecker:
         if not os.path.exists(KERNEL_PATH):
             os.makedirs(KERNEL_PATH)
 
+        if not os.path.exists(USERS_LIST):
+            self.get_users_list()
+
         # если нет сорцов для какой либо версии проверяемых ядер - скачиваем и распаковываем их
         if self.kernel_72 == self.kernel_73:
             if not os.path.exists(f"{KERNEL_PATH}/linux-{self.kernel_73}"):
@@ -208,20 +212,7 @@ class CveChecker:
             shutil.rmtree(TMP_PATCHES_PATH, ignore_errors=False, onerror=None)
 
     def __init__(self, days_to_check, recon_num, auto):
-        self.pkgs_data = {
-            'kernel': {
-                'check_func': self.is_kernel_issue,
-                'cve_counter': 0,
-                'is_kernel': True,  # убрать, потому как ничто не ядро, кроме ядра
-                'check_patch': True
-            },
-            'vim': {
-                'check_func': self.is_vim_issue,
-                'cve_counter': 0,
-                'is_kernel': False,  # убрать, потому как ничто не ядро, кроме ядра
-                'check_patch': False
-            }
-        }
+
         self.session = koji.ClientSession(KOJI_URL)
         self.__get_package_data()
         self.__prepare_dirs()
@@ -232,6 +223,29 @@ class CveChecker:
         self.recon_num = recon_num
         self.auto = auto
         self.manual_check = []
+
+        with open(USERS_LIST) as f:
+            self.users_dict = json.loads(f.read())
+
+        # TODO в итоге это добро надо выносить в отдельный модуль
+        self.pkgs_data = {
+            'kernel': {
+                'check_func': self.is_kernel_issue,
+                'cve_counter': 0,
+                'is_kernel': True,  # убрать, потому как ничто не ядро, кроме ядра
+                'check_patch': True,
+                'assigned_to': int(self.users_dict['artem.chernyshev']),
+                'watchers': [int(self.users_dict['artem.chernyshev'])],
+            },
+            'vim': {
+                'check_func': self.is_vim_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'check_patch': False,
+                'assigned_to': (self.users_dict['artem.chernyshev']),
+                'watchers': [int(self.users_dict['artem.chernyshev'])],
+            }
+        }
 
     @staticmethod
     def get_response(*args, bs=True, parser='lxml', **kwargs):
@@ -305,7 +319,7 @@ class CveChecker:
             user_lnk = user.find('a')
             if user_lnk.text:
                 result[user_lnk.text] = int(re.findall(r"\d+", user_lnk.get('href'))[0])
-        with open("./users.json", 'w') as f:
+        with open(USERS_LIST, 'w') as f:
             json.dump(result, f)
 
     def find_all_issues(self, n=30):
@@ -380,7 +394,7 @@ class CveChecker:
             print(f"{item[0]:<17} {item[1]:>5}")
 
     @staticmethod
-    def __user_wants_create_issue() -> bool:
+    def user_wants_create_issue() -> bool:
         """
         Проверяем, хочет ли юзер создавать задачу на трекере
         """
@@ -390,7 +404,7 @@ class CveChecker:
                 continue
             return True if human_resp in ['yes', 'y'] else False
 
-    def __get_dates(self):
+    def get_dates(self):
         """
         возвращает кортеж строк с датами требуемого формата,
         для последующего использования в запросе api nist.gov
@@ -400,7 +414,7 @@ class CveChecker:
         return from_date, to_date
 
     @staticmethod
-    def __prepare_url(url, queries: dict) -> str:
+    def prepare_url(url, queries: dict) -> str:
         """
         собирает ссылку с требуемыми запросами
         """
@@ -445,7 +459,7 @@ class CveChecker:
                    f"/src/{package['nvr']}.src.rpm"
         return src_path
 
-    def __get_kern_patches(self, url: str) -> dict:
+    def get_kern_patches(self, url: str) -> dict:
         """
         Парсим патч по ссылке, в случае, если ссылка формата
         https://github.com/torvalds/linux/commit/**commit**
@@ -564,7 +578,7 @@ class CveChecker:
 
         if check_patch:
             for link in links:
-                patch_resp = self.__get_kern_patches(link)
+                patch_resp = self.get_kern_patches(link)
                 if patch_resp:
                     patch.append(patch_resp)
 
@@ -591,7 +605,7 @@ class CveChecker:
         params = {
             NIST_CVE: cve_id,
         }
-        url = self.__prepare_url(NIST_API_URL, params)
+        url = self.prepare_url(NIST_API_URL, params)
         nist_resp = self.get_response(url, bs=False, headers=HEADERS)
         nist_json = nist_resp.json() if nist_resp else None
         if not nist_json or not nist_json.get('vulnerabilities', ""):
@@ -660,7 +674,7 @@ class CveChecker:
             NIST_START: date_from,
             NIST_END: date_to
         }
-        url = self.__prepare_url(NIST_API_URL, params)
+        url = self.prepare_url(NIST_API_URL, params)
         nist_resp = self.get_response(url, bs=False, headers=HEADERS)
 
         nist_json = nist_resp.json() if nist_resp else None
@@ -729,15 +743,21 @@ class CveChecker:
     def create_an_issue(self,
                         subject,
                         desc: str,
+                        assigned_id=23,
+                        watcher_ids=None,
                         tag=None,
                         ):
         """
         Создает тему на трекере.
-        * desc - Тело задачи
-        * patches - список со строками, содержащими текст патчей
-        * multiple - Флаг для выбора названия темы
-        Возвращает ID темы
+        :param subject: Тема задачи
+        :param desc: Описание
+        :param assigned_id: кому назначена
+        :param watcher_ids: Кто наблюдатель
+        :param tag: тег
+        :return: id задачи
         """
+        if watcher_ids is None:
+            watcher_ids = [490]
         issue = self.redmine.issue.create(
             project_id=297,  # 297 Уязвимости
             subject=subject,  # заголовок
@@ -746,8 +766,8 @@ class CveChecker:
             status_id=1,  # 1 - новая
             fixed_version_id=146,  # 146 - Версия: РЕД ОС - РЕД ОС 7.3
             priority_id=1,  # 1 - нормальный приоритет
-            assigned_to_id=490,
-            watcher_user_ids=[490],  # 490 - Чернышев Артем, 25 - Шапошников Олег
+            assigned_to_id=assigned_id,
+            watcher_user_ids=watcher_ids,  # 490 - Чернышев Артем, 25 - Шапошников Олег
             custom_fields=[{'id': 151, 'value': 'Все'},  # Конфигурация ОС: Все
                            {'id': 133, 'value': ['143', '144']},  # 143, 144 - Редакция: Сертифицированная, Стандартная
                            ],
@@ -844,7 +864,14 @@ class CveChecker:
         # TODO сделать try-except
         return json.loads(result)
 
-    def check_and_post(self, pkg_name, all_cves, is_kernel: bool, check_patch: bool):
+    def check_and_post(self,
+                       pkg_name,
+                       all_cves,
+                       is_kernel: bool,
+                       check_patch: bool,
+                       assigned_id=23,  # 23 - Владимир Чиркин
+                       watcher_ids=None,
+                       ):
         """
         Подготавливаем к печати/публикованию уязвимости, собранные на предыдущем этапе.
         Разделяем по пакетам: ядро, вим и т.д.
@@ -852,8 +879,11 @@ class CveChecker:
         :param all_cves: Полный список отобранных cve
         :param is_kernel: Флаг ядреной уязвимости
         :param check_patch: Проверяли патчи или нет
+        :param assigned_id: Кому назначено
+        :param watcher_ids: Кто наблюдатели (в виде list'a)
         :return:
         """
+
         pkg_cves = list(filter(lambda x: x['name'] == pkg_name, all_cves))
         issues, patches_found, successful_patches_list = self.prepare_issue(pkg_cves,
                                                                             kernel_issue=is_kernel,
@@ -864,16 +894,24 @@ class CveChecker:
             print(issues)
         if not (CREATE_AN_ISSUE and pkg_cves and self.redmine):
             return
-        if not self.auto and not self.__user_wants_create_issue():
+        if not self.auto and not self.user_wants_create_issue():
             return
         if is_kernel:
             subject = 'Множественные уязвимости в ядре Linux' \
                 if (len(pkg_cves) > 1) else 'Уязвимость в ядре Linux'
-            issue_id = self.create_an_issue(subject=subject, desc=issues, tag=pkg_name)
+            issue_id = self.create_an_issue(subject=subject,
+                                            desc=issues,
+                                            assigned_id=assigned_id,
+                                            watcher_ids=watcher_ids,
+                                            tag=pkg_name)
         else:
             subject = f'Множественные уязвимости в {pkg_name}' \
                 if (len(pkg_cves) > 1) else f'Уязвимость в {pkg_name}'
-            issue_id = self.create_an_issue(subject=subject, desc=issues)
+            issue_id = self.create_an_issue(subject=subject,
+                                            desc=issues,
+                                            assigned_id=assigned_id,
+                                            watcher_ids=watcher_ids
+                                            )
 
         if is_kernel and check_patch and successful_patches_list:
             for i, item in enumerate(successful_patches_list):
@@ -894,12 +932,14 @@ class CveChecker:
         """
         Основной цикл
         """
-        all_cves = self.get_current_cves(*self.__get_dates())
+        all_cves = self.get_current_cves(*self.get_dates())
         for pkg_name, pkg_data in self.pkgs_data.items():
             self.check_and_post(pkg_name,
                                 all_cves,
                                 is_kernel=pkg_data['is_kernel'],
-                                check_patch=pkg_data['check_patch'])
+                                check_patch=pkg_data['check_patch'],
+                                assigned_id=pkg_data['assigned_to'],
+                                watcher_ids=pkg_data['watchers'])
 
 
 def parse_args():
