@@ -6,7 +6,7 @@ import koji
 import json
 import shutil
 import urllib3
-import vulners
+# import vulners
 import requests
 import argparse
 import subprocess
@@ -138,10 +138,10 @@ class CveChecker:
             print("Auth Failed")
             return None
 
-    @staticmethod
-    def __vulners_auth():
-        vulners_api = vulners.VulnersApi(api_key=credentials['VULNERS_KEY'])
-        return vulners_api
+    # @staticmethod
+    # def __vulners_auth():
+    #     vulners_api = vulners.VulnersApi(api_key=credentials['VULNERS_KEY'])
+    #     return vulners_api
 
     @staticmethod
     def exec_bash(bash_cmd: str) -> str:
@@ -207,11 +207,25 @@ class CveChecker:
             shutil.rmtree(TMP_PATCHES_PATH, ignore_errors=False, onerror=None)
 
     def __init__(self, days_to_check, recon_num, auto):
+        self.pkgs_data = {
+            'kernel': {
+                'check_func': self.is_kernel_issue,
+                'cve_counter': 0,
+                'is_kernel': True,  # убрать, потому как ничто не ядро, кроме ядра
+                'check_patch': True
+            },
+            'vim': {
+                'check_func': self.is_vim_issue,
+                'cve_counter': 0,
+                'is_kernel': False,  # убрать, потому как ничто не ядро, кроме ядра
+                'check_patch': False
+            }
+        }
         self.session = koji.ClientSession(KOJI_URL)
         self.__get_package_data()
         self.__prepare_dirs()
         self.redmine = self.__redmine_auth()
-        self.vulners = self.__vulners_auth()
+        # self.vulners = self.__vulners_auth()
 
         self.days_to_check = days_to_check
         self.recon_num = recon_num
@@ -469,7 +483,6 @@ class CveChecker:
             'status': cve['cve']['vulnStatus'],
             'links': links,
             'scores': scores,
-            'ai_scores': self.vulners.get_ai_score(desc)[0],
             'patch': patch,
         }
 
@@ -527,12 +540,6 @@ class CveChecker:
         date1 = '2023-03-01T00:00:00.000-05:00'
         date2 = '2023-03-02T23:59:59.999-05:00'
         """
-        # TODO поменять на класс, enum или подобное
-        # названия, функция проверки на принадлежность, счетчик вхождений
-        pkg_check_data = [
-            ['kernel', self.is_kernel_issue, 0],
-            ['vim', self.is_vim_issue, 0]
-        ]
         cve_data_list, cve_id_list = [], []
         exists_count = 0
 
@@ -557,20 +564,20 @@ class CveChecker:
             desc = cve['cve']['descriptions'][0]['value'].lower()
             links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
-            for pkg in pkg_check_data:
-                pkg[2], exists_count = self.check_cve(pkg[0],
-                                                      pkg[1],
-                                                      cve,
-                                                      desc,
-                                                      links,
-                                                      cve_data_list,
-                                                      cve_id_list,
-                                                      pkg[2],
-                                                      exists_count)
+            for pkg_name, pkg_data in self.pkgs_data.items():
+                pkg_data['cve_counter'], exists_count = self.check_cve(pkg_name,
+                                                                       pkg_data['check_func'],
+                                                                       cve,
+                                                                       desc,
+                                                                       links,
+                                                                       cve_data_list,
+                                                                       cve_id_list,
+                                                                       pkg_data['cve_counter'],
+                                                                       exists_count)
 
-        for pkg in pkg_check_data:
+        for pkg_name, pkg_data in self.pkgs_data.items():
             # классная арифметическая конструкция - для вычисления пробелов
-            print(f"{pkg[0]} CVE:" + " " * (26 - (len(pkg[0]) + 5)) + f"{pkg[2]}")
+            print(f"{pkg_name} CVE:" + " " * (26 - (len(pkg_name) + 5)) + f"{pkg_data['cve_counter']}")
         print(f"CVE list:                 {', '.join(cve_id_list)}")
         print(f"Kernel manual check:      {', '.join(self.manual_check)}")
         print(f"CVE existed on a tracker: {exists_count}")
@@ -589,10 +596,6 @@ class CveChecker:
             result += f'Важность:\n'
             for k, v in cve['scores'].items():
                 result += f"* *CVSS {k}: {v}*\n"
-        elif AI_SCORE:
-            result += f'Важность:\n'
-            result += f"* *AI Score: {cve['ai_score']}\n"
-            result += f"_Оценка - результат работы нейросети, поэтому является ознакомительной_"
         if cve['patch']:
             for item in cve['patch']:
                 result += f'\nДанные патча:\n\n'
@@ -735,18 +738,14 @@ class CveChecker:
         issues, patches_found, successful_patches_list = self.prepare_issue(pkg_cves,
                                                                             kernel_issue=is_kernel,
                                                                             check_patch=check_patch)
-
         if check_patch:
             print(f"{pkg_name} patches found:     {patches_found}\n")
         if issues:
             print(issues)
-
         if not (CREATE_AN_ISSUE and pkg_cves and self.redmine):
             return
-
         if not self.auto and not self.__user_wants_create_issue():
             return
-
         if is_kernel:
             subject = 'Множественные уязвимости в ядре Linux' \
                 if (len(pkg_cves) > 1) else 'Уязвимость в ядре Linux'
@@ -776,54 +775,12 @@ class CveChecker:
         Основной цикл
         """
         # TODO переделать в класс, enum или нечто похожее
-        pkgs = [
-            ('kernel', True, True),
-            ('vim', False, False)
-        ]
         all_cves = self.get_current_cves(*self.__get_dates())
-        for pkg in pkgs:
-            self.check_and_post(pkg[0],
+        for pkg_name, pkg_data in self.pkgs_data.items():
+            self.check_and_post(pkg_name,
                                 all_cves,
-                                is_kernel=pkg[1],
-                                check_patch=pkg[2])
-
-
-# ##############################################################################
-
-# def is_src_tree_fine(src_path) -> bool:
-#     ps = subprocess.Popen("git status",
-#                           shell=True,
-#                           cwd=src_path,
-#                           stdout=subprocess.PIPE,
-#                           stderr=subprocess.STDOUT)
-#     git_status = ps.communicate()[0].decode('utf-8')
-#     if 'fatal: not a git repository' in git_status:
-#         print("Not a git repository")
-#         return False
-#     elif 'Changes not staged for commit' in git_status:
-#         print("Some untracked changes in git tree")
-#         return False
-#     elif 'Changes to be committed' in git_status:
-#         print("Not commited files exists in tree")
-#         return False
-#     elif 'working tree clean' in git_status:
-#         return True
-#     else:
-#         print("Unknown error")
-#         return False
-#
-#
-# def reset_git_tree(src_path):
-#     subprocess.run(["git", "add", "."],
-#                    cwd=src_path,
-#                    stdout=subprocess.DEVNULL)
-#     subprocess.run(['git', 'commit', '-m', 'tmp'],
-#                    cwd=src_path,
-#                    stdout=subprocess.DEVNULL)
-#     subprocess.run(["git", "reset", "--hard", "HEAD~1"],
-#                    cwd=src_path,
-#                    stdout=subprocess.DEVNULL,
-#                    stderr=subprocess.DEVNULL)
+                                is_kernel=pkg_data['is_kernel'],
+                                check_patch=pkg_data['check_patch'])
 
 
 def parse_args():
@@ -852,13 +809,6 @@ def parse_args():
         '--no-exists',
         dest='exists',
         action='store_false',
-    )
-    parser.add_argument(
-        '-n',
-        '--neural',
-        action='store_true',
-        help="Включить приблизительную оценку важности уязвимости с помощью нейросети. "
-             "Качество не впечатляет"
     )
     parser.add_argument(
         '--patch-check',
@@ -916,7 +866,6 @@ if __name__ == '__main__':
     CHECK_REDMINE = arguments.exists
     CHECK_PATCH = arguments.patch_check
     CREATE_AN_ISSUE = arguments.tracker and CHECK_REDMINE
-    AI_SCORE = arguments.neural
     AUTO = arguments.auto
     CVE = arguments.cve
 
