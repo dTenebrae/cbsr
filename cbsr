@@ -751,9 +751,11 @@ class CveChecker:
                                                                        pkg_data['cve_counter'],
                                                                        exists_count)
 
+        print('=' * 80)
         for pkg_name, pkg_data in self.pkgs_data.items():
             # классная арифметическая конструкция - для вычисления пробелов
             print(f"{pkg_name} CVE:" + " " * (26 - (len(pkg_name) + 5)) + f"{pkg_data['cve_counter']}")
+        print('=' * 80)
         print(f"CVE list:                 {', '.join(cve_id_list)}")
         print(f"Manual check:             {', '.join(self.manual_check)}")
         print(f"CVE existed on a tracker: {exists_count}")
