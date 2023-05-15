@@ -39,8 +39,8 @@ NIST_REJ = "noRejected"
 NIST_START = "pubStartDate"
 NIST_END = "pubEndDate"
 
-# TODO поменять, так как привязано к моей машине
 KERNEL_PATH = f"{os.path.expanduser('.')}/src"
+# TODO поменять, так как привязано к моей машине
 DEST_PATCH_PATH = "/home/tenebrae/devel/tracker/kernel/patches"
 USERS_LIST = f"{os.path.expanduser('.')}/users.json"
 
@@ -210,6 +210,7 @@ class CveChecker:
 
         if os.path.exists(TMP_PATCHES_PATH):
             shutil.rmtree(TMP_PATCHES_PATH, ignore_errors=False, onerror=None)
+        os.makedirs(TMP_PATCHES_PATH)
 
     def __init__(self, days_to_check, recon_num, auto):
 
@@ -247,6 +248,14 @@ class CveChecker:
             },
             'nextcloud': {
                 'check_func': self.is_nextcloud_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'check_patch': False,
+                'assigned_to': (self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
+            'gpac': {
+                'check_func': self.is_gpac_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
                 'check_patch': False,
@@ -585,6 +594,23 @@ class CveChecker:
             netloc = parse.urlparse(link).netloc
             path_first = parse.urlparse(link).path.split('/')[1]
             if netloc == 'github.com' and path_first == 'nextcloud':
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_gpac_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к ядреной
+        """
+
+        if 'gpac' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'gpac':
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
