@@ -261,6 +261,14 @@ class CveChecker:
                 'check_patch': False,
                 'assigned_to': (self.users_dict['vladimir.chirkin']),
                 'watchers': None,
+            },
+            'redis': {
+                'check_func': self.is_redis_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'check_patch': False,
+                'assigned_to': (self.users_dict['vladimir.chirkin']),
+                'watchers': None,
             }
         }
 
@@ -615,6 +623,23 @@ class CveChecker:
 
         return IsXIssue.MAYBE
 
+    @staticmethod
+    def is_redis_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к ядреной
+        """
+
+        if 'redis' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'redis':
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
     def get_issue(self, name, cve, desc, links, check_patch=True) -> dict:
         """
         Разбираем nist json на нужный нам словарь
@@ -752,9 +777,11 @@ class CveChecker:
                                                                        exists_count)
 
         print('=' * 80)
+        print("CVEs")
+        print('=' * 80)
         for pkg_name, pkg_data in self.pkgs_data.items():
             # классная арифметическая конструкция - для вычисления пробелов
-            print(f"{pkg_name} CVE:" + " " * (26 - (len(pkg_name) + 5)) + f"{pkg_data['cve_counter']}")
+            print(f"{pkg_name}:" + " " * (30 - (len(pkg_name) + 5)) + f"{pkg_data['cve_counter']}")
         print('=' * 80)
         print(f"CVE list:                 {', '.join(cve_id_list)}")
         print(f"Manual check:             {', '.join(self.manual_check)}")
@@ -958,8 +985,8 @@ class CveChecker:
                                             watcher_ids=watcher_ids,
                                             tag=pkg_name)
         else:
-            subject = f'Множественные уязвимости в {pkg_name}' \
-                if (len(pkg_cves) > 1) else f'Уязвимость в {pkg_name}'
+            subject = f'Множественные уязвимости в {pkg_name.capitalize()}' \
+                if (len(pkg_cves) > 1) else f'Уязвимость в {pkg_name.capitalize()}'
             issue_id = self.create_an_issue(subject=subject,
                                             desc=issues,
                                             assigned_id=assigned_id,
