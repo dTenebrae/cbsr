@@ -308,8 +308,8 @@ class CveChecker:
                 'ядре linux',
                 'linux-ядра',
             ]
-            for item in kw_list:
-                if item in str_to_check:
+            for kw in kw_list:
+                if kw in str_to_check:
                     return 'linux kernel'
             return str_to_check
 
@@ -319,10 +319,14 @@ class CveChecker:
         def systemd_str(str_to_check: str) -> str:
             return 'systemd' if 'systemd' in str_to_check else str_to_check
 
+        def nextcloud_str(str_to_check: str) -> str:
+            return 'nextcloud' if 'nextcloud' in str_to_check else str_to_check
+
         filter_funcs = [
             kernel_str,
             firefox_str,
             systemd_str,
+            nextcloud_str,
         ]
 
         limit = 100
@@ -349,7 +353,7 @@ class CveChecker:
             if t_count < limit:
                 break
 
-        for item in Counter(result).most_common(20):
+        for item in Counter(result).most_common(30):
             print(f"{item[0]:<17} {item[1]:>5}")
 
     @staticmethod
