@@ -288,10 +288,27 @@ class CveChecker:
             print("Ошибка поиска")
             return False
 
+    def get_users_list(self):
+        result = {}
+        url = f"{REDMINE_URL}/users?per_page=500"
+        resp = self.get_response(url,
+                                 bs=True,
+                                 parser='xml',
+                                 headers=HEADERS,
+                                 auth=(credentials['REDMINE_USER'], credentials['REDMINE_PASSWORD'])
+                                 )
+        for user in resp.find_all('td', attrs={'class': 'login'}):
+            user_lnk = user.find('a')
+            if user_lnk.text:
+                result[user_lnk.text] = int(re.findall(r"\d+", user_lnk.get('href'))[0])
+        with open("./users.json", 'w') as f:
+            json.dump(result, f)
+
     def find_all_issues(self):
         """
         Сканируем трекер, собираем большинство уязвимостей и возвращаем Counter из них
         """
+
         def title_strip(title):
             regex1 = re.compile(r"уязвимость в (.+)$", re.I)
             regex2 = re.compile(r"уязвимость: (.+)$", re.I)
@@ -923,12 +940,18 @@ def parse_args():
         action='store_true',
         help="Статистика по уязвимостям на трекере"
     )
+    parser.add_argument(
+        '--users',
+        action='store_true',
+        help="Создать файл со списком юзеров редмайна"
+    )
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
     parser.set_defaults(auto=True)
     parser.set_defaults(patch_check=True)
     parser.set_defaults(send=True)
     parser.set_defaults(stat=False)
+    parser.set_defaults(users=False)
     return parser.parse_args()
 
 
@@ -942,6 +965,7 @@ if __name__ == '__main__':
     AUTO = arguments.auto
     CVE = arguments.cve
     STAT = arguments.stat
+    USERS = arguments.users
 
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON, AUTO)
     if CVE:
@@ -950,6 +974,9 @@ if __name__ == '__main__':
         exit(0)
     if STAT:
         cve_checker.find_all_issues()
+        exit(0)
+    if USERS:
+        cve_checker.get_users_list()
         exit(0)
     cve_checker.find_all_issues()
     print(f"Current time:             {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
