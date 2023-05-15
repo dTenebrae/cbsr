@@ -17,6 +17,7 @@ from pathlib import Path
 import urllib.parse as parse
 from bs4 import BeautifulSoup
 from redminelib import Redmine
+from collections import Counter
 from dotenv import dotenv_values
 from pkg_resources import parse_version
 from datetime import timedelta, date, datetime
@@ -286,6 +287,31 @@ class CveChecker:
         except ValueError:
             print("Ошибка поиска")
             return False
+
+    def find_all_issues(self):
+        limit = 100
+        cnt = 0
+        result = []
+        while True:
+            url = f"{REDMINE_URL}/projects/cve/search.xml?&issues=1&" \
+                  f"limit={limit}&offset={cnt}&titles_only=1&q=уязвимость"
+            resp = self.get_response(url,
+                                     bs=True,
+                                     parser='xml',
+                                     headers=HEADERS,
+                                     auth=(credentials['REDMINE_USER'],
+                                           credentials['REDMINE_PASSWORD'])
+                                     )
+            titles = resp.find_all("title")
+            t_count = len(titles)
+            regex = re.compile(r"уязвимость в (.+)$", re.I)
+            result.extend(list(
+                map(lambda x: re.findall(regex, x.text)[0].strip() if re.findall(regex, x.text) else None, titles)))
+            result = list(filter(lambda x: x is not None, result))
+            cnt += limit
+            if t_count < limit:
+                break
+        return Counter(result)
 
     @staticmethod
     def __user_wants_create_issue() -> bool:
@@ -774,7 +800,6 @@ class CveChecker:
         """
         Основной цикл
         """
-        # TODO переделать в класс, enum или нечто похожее
         all_cves = self.get_current_cves(*self.__get_dates())
         for pkg_name, pkg_data in self.pkgs_data.items():
             self.check_and_post(pkg_name,
@@ -850,12 +875,17 @@ def parse_args():
         dest='tracker',
         action='store_false',
     )
+    parser.add_argument(
+        '--stat',
+        action='store_true',
+        help="Статистика по уязвимостям на трекере"
+    )
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
     parser.set_defaults(auto=True)
     parser.set_defaults(patch_check=True)
     parser.set_defaults(send=True)
-    parser.set_defaults(neural=False)
+    parser.set_defaults(stat=False)
     return parser.parse_args()
 
 
@@ -868,13 +898,18 @@ if __name__ == '__main__':
     CREATE_AN_ISSUE = arguments.tracker and CHECK_REDMINE
     AUTO = arguments.auto
     CVE = arguments.cve
+    STAT = arguments.stat
 
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON, AUTO)
     if CVE:
         one_cve = cve_checker.get_one_cve(CVE, check_patch=True)
         print(cve_checker.get_issue_str(one_cve))
         exit(0)
-
+    if STAT:
+        stats = cve_checker.find_all_issues()
+        print(stats)
+        exit(0)
+    cve_checker.find_all_issues()
     print(f"Current time:             {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
     print(f"Checking CVE's for last:  {DAYS_TO_CHECK} day(s)")
     cve_checker.run()
