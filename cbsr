@@ -289,6 +289,10 @@ class CveChecker:
             return False
 
     def get_users_list(self):
+        """
+        создает файл со списком юзеров трекера с их номерами
+        :return:
+        """
         result = {}
         url = f"{REDMINE_URL}/users?per_page=500"
         resp = self.get_response(url,
@@ -304,9 +308,9 @@ class CveChecker:
         with open("./users.json", 'w') as f:
             json.dump(result, f)
 
-    def find_all_issues(self):
+    def find_all_issues(self, n=30):
         """
-        Сканируем трекер, собираем большинство уязвимостей и возвращаем Counter из них
+        Сканируем трекер, собираем большинство уязвимостей и печатаем n популярных
         """
 
         def title_strip(title):
@@ -317,6 +321,7 @@ class CveChecker:
             if title_reg:
                 return title_reg[0].strip().lower()
 
+        # ниже идут функции проверки на принадлежность к пакету
         def kernel_str(str_to_check: str) -> str:
             kw_list = [
                 'ядро linux',
@@ -339,6 +344,7 @@ class CveChecker:
         def nextcloud_str(str_to_check: str) -> str:
             return 'nextcloud' if 'nextcloud' in str_to_check else str_to_check
 
+        # список из этих функций, чтобы было удобнее итерироваться
         filter_funcs = [
             kernel_str,
             firefox_str,
@@ -370,7 +376,7 @@ class CveChecker:
             if t_count < limit:
                 break
 
-        for item in Counter(result).most_common(30):
+        for item in Counter(result).most_common(n):
             print(f"{item[0]:<17} {item[1]:>5}")
 
     @staticmethod
@@ -472,6 +478,12 @@ class CveChecker:
         }
 
     def get_vim_data(self, desc):
+        """
+        Функция получения версии уязвимого вима и запуска пересборки нового, если доступно.
+        Пока заготовка
+        :param desc: Описание узявимости
+        :return:
+        """
 
         vim_ver_re = re.compile(r"\d\.\d\.\d+")
         vuln_ver = re.findall(vim_ver_re, desc)[0]
@@ -602,6 +614,19 @@ class CveChecker:
                   cve_count,
                   exists_count
                   ):
+        """
+        Фильтруем уязвимости на нужные/ненужные
+        :param pkg_name: Имя пакета, на который проверяем
+        :param check_func: Функция, которая проверяет на принадлекжность к пакету
+        :param cve: Словарь с данными по уязвимости
+        :param desc: слегка обработанное описание уязвимости
+        :param links: обработанные (в случае ядра) ссылки предоставленные nist'om
+        :param cve_data_list: общий список данных по отфильтрованным уязвимостям
+        :param cve_id_list: общий список id отфильтрованных уязвимостей
+        :param cve_count: счетчик релевантных уязвимостей
+        :param exists_count: счетчик уже существующих на трекере уязвимостей
+        :return: Вщвзвращаем счетчики уязвимостей обратно
+        """
 
         is_pkg = check_func(desc, links)
         if is_pkg == IsXIssue.YES:
@@ -820,6 +845,15 @@ class CveChecker:
         return json.loads(result)
 
     def check_and_post(self, pkg_name, all_cves, is_kernel: bool, check_patch: bool):
+        """
+        Подготавливаем к печати/публикованию уязвимости, собранные на предыдущем этапе.
+        Разделяем по пакетам: ядро, вим и т.д.
+        :param pkg_name: Имя пакета
+        :param all_cves: Полный список отобранных cve
+        :param is_kernel: Флаг ядреной уязвимости
+        :param check_patch: Проверяли патчи или нет
+        :return:
+        """
         pkg_cves = list(filter(lambda x: x['name'] == pkg_name, all_cves))
         issues, patches_found, successful_patches_list = self.prepare_issue(pkg_cves,
                                                                             kernel_issue=is_kernel,
