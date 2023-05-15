@@ -978,7 +978,6 @@ if __name__ == '__main__':
     if USERS:
         cve_checker.get_users_list()
         exit(0)
-    cve_checker.find_all_issues()
     print(f"Current time:             {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
     print(f"Checking CVE's for last:  {DAYS_TO_CHECK} day(s)")
     cve_checker.run()
