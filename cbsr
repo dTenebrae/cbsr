@@ -160,6 +160,11 @@ class CveChecker:
                               stderr=subprocess.DEVNULL)
         return ps.communicate()[0].decode('utf-8')
 
+    @staticmethod
+    def grep_cve(text) -> list:
+        regex = re.compile(r"[A-Z]{3}.{0,2}-\d{4}-\d{4,7}")
+        return re.findall(regex, text)
+
     def download_kernel_src(self, kern_ver: str):
         """
         Качаем сорцы ядра требуемой версии и распаковываем
@@ -419,7 +424,6 @@ class CveChecker:
                 cnt += 1
             if cnt >= n:
                 break
-        print(1)
         return result
 
     def find_all_issues(self, n=30):
@@ -673,7 +677,7 @@ class CveChecker:
     @staticmethod
     def is_nextcloud_issue(desc, links) -> IsXIssue:
         """
-        Проверка на то, что уязвимость относится к ядреной
+        Проверка на то, что уязвимость относится к nextcloud
         """
 
         if 'nextcloud' not in desc:
@@ -690,7 +694,7 @@ class CveChecker:
     @staticmethod
     def is_gpac_issue(desc, links) -> IsXIssue:
         """
-        Проверка на то, что уязвимость относится к ядреной
+        Проверка на то, что уязвимость относится к gpac
         """
 
         if 'gpac' not in desc:
@@ -707,7 +711,7 @@ class CveChecker:
     @staticmethod
     def is_redis_issue(desc, links) -> IsXIssue:
         """
-        Проверка на то, что уязвимость относится к ядреной
+        Проверка на то, что уязвимость относится к redis
         """
 
         if 'redis' not in desc:
@@ -724,7 +728,7 @@ class CveChecker:
     @staticmethod
     def is_systemd_issue(desc, links) -> IsXIssue:
         """
-        Проверка на то, что уязвимость относится к ядреной
+        Проверка на то, что уязвимость относится к systemd
         """
 
         if 'systemd' not in desc:
@@ -741,7 +745,7 @@ class CveChecker:
     @staticmethod
     def is_django_issue(desc, links) -> IsXIssue:
         """
-        Проверка на то, что уязвимость относится к ядреной
+        Проверка на то, что уязвимость относится к django
         """
         django_urls = [
             'docs.djangoproject.com',
@@ -760,7 +764,7 @@ class CveChecker:
     @staticmethod
     def is_moodle_issue(desc, links) -> IsXIssue:
         """
-        Проверка на то, что уязвимость относится к ядреной
+        Проверка на то, что уязвимость относится к moodle
         """
         moodle_urls = [
             'git.moodle.org',
@@ -1276,7 +1280,7 @@ if __name__ == '__main__':
         cve_checker.get_users_list()
         exit(0)
     if MOZ:
-        cve_checker.get_mozilla_cves()
+        moz_list = cve_checker.get_mozilla_cves()
         exit(0)
     print(80 * "=")
     print(f"Current time:             {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
