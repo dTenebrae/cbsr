@@ -373,9 +373,11 @@ class CveChecker:
 
         def title_strip(title):
             regex1 = re.compile(r"уязвимость в (.+)$", re.I)
-            regex2 = re.compile(r"уязвимость: (.+)$", re.I)
+            regex2 = re.compile(r"уязвимости в (.+)$", re.I)
+            regex3 = re.compile(r"уязвимость: (.+)$", re.I)
             title_reg = re.findall(regex1, title.text)
             title_reg.extend(re.findall(regex2, title.text))
+            title_reg.extend(re.findall(regex3, title.text))
             if title_reg:
                 return title_reg[0].strip().lower()
 
@@ -402,12 +404,16 @@ class CveChecker:
         def nextcloud_str(str_to_check: str) -> str:
             return 'nextcloud' if 'nextcloud' in str_to_check else str_to_check
 
+        def thunderbird_str(str_to_check: str) -> str:
+            return 'thunderbird' if 'thunderbird' in str_to_check else str_to_check
+
         # список из этих функций, чтобы было удобнее итерироваться
         filter_funcs = [
             kernel_str,
             firefox_str,
             systemd_str,
             nextcloud_str,
+            thunderbird_str,
         ]
 
         limit = 100
@@ -416,7 +422,7 @@ class CveChecker:
         result = []
         while True:
             url = f"{REDMINE_URL}/projects/cve/search.xml?&issues=1&" \
-                  f"limit={limit}&offset={cnt}&titles_only=1&q=уязвимость"
+                  f"limit={limit}&offset={cnt}&titles_only=1&q=уязвимост"
             resp = self.get_response(url,
                                      bs=True,
                                      parser='xml',
@@ -435,7 +441,7 @@ class CveChecker:
                 break
 
         for item in Counter(result).most_common(n):
-            print(f"{item[0]:<17} {item[1]:>5}")
+            print(f"{item[0]:<20} {item[1]:>5}")
 
     @staticmethod
     def user_wants_create_issue() -> bool:
@@ -891,8 +897,8 @@ class CveChecker:
         :param tag: тег
         :return: id задачи
         """
-        if watcher_ids is None:
-            watcher_ids = [490]
+        # if watcher_ids is None:
+        #     watcher_ids = [490]
         issue = self.redmine.issue.create(
             project_id=297,  # 297 Уязвимости
             subject=subject,  # заголовок
