@@ -251,7 +251,7 @@ class CveChecker:
                 'cve_counter': 0,
                 'is_kernel': False,
                 'check_patch': False,
-                'assigned_to': (self.users_dict['vladimir.chirkin']),
+                'assigned_to': (self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
             'gpac': {
@@ -259,11 +259,19 @@ class CveChecker:
                 'cve_counter': 0,
                 'is_kernel': False,
                 'check_patch': False,
-                'assigned_to': (self.users_dict['vladimir.chirkin']),
+                'assigned_to': (self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
             'redis': {
                 'check_func': self.is_redis_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'check_patch': False,
+                'assigned_to': (self.users_dict['vladislav.mitin']),
+                'watchers': None,
+            },
+            'systemd': {
+                'check_func': self.is_systemd_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
                 'check_patch': False,
@@ -346,6 +354,7 @@ class CveChecker:
                 result[user_lnk.text] = int(re.findall(r"\d+", user_lnk.get('href'))[0])
         with open(USERS_LIST, 'w') as f:
             json.dump(result, f)
+        print(f"Данные пользователей записаны в {USERS_LIST}")
 
     def find_all_issues(self, n=30):
         """
@@ -587,7 +596,7 @@ class CveChecker:
             if netloc == 'github.com' and path_first == 'vim':
                 return IsXIssue.YES
 
-        return IsXIssue.NO
+        return IsXIssue.MAYBE
 
     @staticmethod
     def is_nextcloud_issue(desc, links) -> IsXIssue:
@@ -636,6 +645,23 @@ class CveChecker:
             netloc = parse.urlparse(link).netloc
             path_first = parse.urlparse(link).path.split('/')[1]
             if netloc == 'github.com' and path_first == 'redis':
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_systemd_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к ядреной
+        """
+
+        if 'systemd' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'systemd':
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
@@ -776,13 +802,13 @@ class CveChecker:
                                                                        pkg_data['cve_counter'],
                                                                        exists_count)
 
-        print('=' * 80)
+        print('-' * 80)
         print("CVEs")
-        print('=' * 80)
+        print('-' * 80)
         for pkg_name, pkg_data in self.pkgs_data.items():
             # классная арифметическая конструкция - для вычисления пробелов
             print(f"{pkg_name}:" + " " * (30 - (len(pkg_name) + 5)) + f"{pkg_data['cve_counter']}")
-        print('=' * 80)
+        print('-' * 80)
         print(f"CVE list:                 {', '.join(cve_id_list)}")
         print(f"Manual check:             {', '.join(self.manual_check)}")
         print(f"CVE existed on a tracker: {exists_count}")
