@@ -288,6 +288,15 @@ class CveChecker:
                                        int(self.users_dict['ilia.polyvyanyy'])]),
                 'watchers': None,
             },
+            'moodle': {
+                'check_func': self.is_moodle_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'check_patch': False,
+                'assigned_to': choice([int(self.users_dict['vladislav.mitin']),
+                                       int(self.users_dict['ilia.polyvyanyy'])]),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -697,6 +706,25 @@ class CveChecker:
         for link in links:
             netloc = parse.urlparse(link).netloc
             if netloc in django_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_moodle_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к ядреной
+        """
+        moodle_urls = [
+            'git.moodle.org',
+            'moodle.org',
+        ]
+        if 'django' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in moodle_urls:
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
