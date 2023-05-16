@@ -20,6 +20,7 @@ from bs4 import BeautifulSoup
 from redminelib import Redmine
 from collections import Counter
 from dotenv import dotenv_values
+from urllib.parse import urljoin
 from pkg_resources import parse_version
 from datetime import timedelta, date, datetime
 
@@ -374,6 +375,52 @@ class CveChecker:
         with open(USERS_LIST, 'w') as f:
             json.dump(result, f)
         print(f"Данные пользователей записаны в {USERS_LIST}")
+
+    def get_mozilla_cves(self, n=3):
+        """
+        Собираем cve с мозилловского блога
+        :param n - количество последних проверяемых ссылок.
+        В противном случае придется обрабатывать более 1300 старых ссылок
+        """
+        url = "https://www.mozilla.org/en-US/security/advisories/"
+        resp = self.get_response(url,
+                                 bs=True,
+                                 parser='lxml',
+                                 headers=HEADERS,
+                                 )
+        result = []
+        cnt = 0
+        for link in resp.find_all('li', attrs={'class', 'level-item'}):
+            cve_dict = {}
+            href = link.find('a')
+            if href:
+                link = urljoin('https://www.mozilla.org', href.get('href', ""))
+                resp = self.get_response(link,
+                                         bs=True,
+                                         parser='lxml',
+                                         headers=HEADERS,
+                                         )
+                # Парсим summary в словарь
+                main_sum = resp.find('dl', attrs={'class', 'summary'})
+                for name, item in zip(main_sum.find_all('dt'), main_sum.find_all('dd')):
+                    cve_dict["_".join(name.text.lower().split())] = item.text.strip()
+                cve_dict['cves'] = []
+                for cve in resp.find_all('section', attrs={'class', 'cve'}):
+                    cve_header = list(map(str.strip, cve.find('a').text[1:].split(':', 1)))
+                    cve_dict['cves'].append({
+                        'cve': cve_header[0],
+                        'short_desc': cve_header[1],
+                        'impact': cve.find('span', attrs={'class', 'level'}).text,
+                        'long_desc': cve.find('p').text,
+                        'links': [link.find("a").get("href")
+                                  for link in cve.find_all('li')]
+                    })
+                result.append(cve_dict)
+                cnt += 1
+            if cnt >= n:
+                break
+        print(1)
+        return result
 
     def find_all_issues(self, n=30):
         """
@@ -1188,6 +1235,11 @@ def parse_args():
         action='store_true',
         help="Создать файл со списком юзеров редмайна"
     )
+    parser.add_argument(
+        '--moz',
+        action='store_true',
+        help="Создать файл со списком юзеров редмайна"
+    )
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
     parser.set_defaults(auto=True)
@@ -1195,6 +1247,7 @@ def parse_args():
     parser.set_defaults(send=True)
     parser.set_defaults(stat=False)
     parser.set_defaults(users=False)
+    parser.set_defaults(moz=False)
     return parser.parse_args()
 
 
@@ -1209,6 +1262,7 @@ if __name__ == '__main__':
     CVE = arguments.cve
     STAT = arguments.stat
     USERS = arguments.users
+    MOZ = arguments.moz
 
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON, AUTO)
     if CVE:
@@ -1221,7 +1275,11 @@ if __name__ == '__main__':
     if USERS:
         cve_checker.get_users_list()
         exit(0)
+    if MOZ:
+        cve_checker.get_mozilla_cves()
+        exit(0)
+    print(80 * "=")
     print(f"Current time:             {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
     print(f"Checking CVE's for last:  {DAYS_TO_CHECK} day(s)")
     cve_checker.run()
-    print(80 * "-")
+    print(80 * "=")
