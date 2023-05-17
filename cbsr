@@ -327,6 +327,14 @@ class CveChecker:
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
+            'glpi': {
+                'check_func': self.is_glpi_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -446,7 +454,7 @@ class CveChecker:
                         'impact': cve.find('span', attrs={'class', 'level'}).text,
                         'links': [link.find("a").get("href")
                                   for link in cve.find_all('li')],
-                        'source': link,
+                        'source': f"{link}#{cve_header[0]}",
                     })
                 result.append(cve_dict)
                 cnt += 1
@@ -822,7 +830,7 @@ class CveChecker:
     @staticmethod
     def is_mozilla_issue(desc, links) -> IsXIssue:
         """
-        Проверка на то, что уязвимость относится к moodle
+        Проверка на то, что уязвимость относится к mozilla
         """
         check_urls = [
             'bugzilla.mozilla.org',
@@ -841,7 +849,7 @@ class CveChecker:
     @staticmethod
     def is_curl_issue(desc, links) -> IsXIssue:
         """
-        Проверка на то, что уязвимость относится к moodle
+        Проверка на то, что уязвимость относится к curl
         """
         check_urls = [
             'security.netapp.com',
@@ -853,6 +861,28 @@ class CveChecker:
         for link in links:
             netloc = parse.urlparse(link).netloc
             if netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_glpi_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к glpi
+        """
+
+        check_urls = [
+            'pluginsGLPI',
+            'glpi-project',
+        ]
+
+        if 'glpi' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first in check_urls:
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
