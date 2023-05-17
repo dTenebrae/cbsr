@@ -407,6 +407,14 @@ class CveChecker:
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
+            'yasm': {
+                'check_func': self.is_yasm_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1174,6 +1182,23 @@ class CveChecker:
                 return IsXIssue.MAYBE
 
         return IsXIssue.NO
+
+    @staticmethod
+    def is_yasm_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к libraw
+        """
+
+        if 'yasm' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'yasm':
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
 
     def get_issue(self, name, cve, desc, links, check_patch=True) -> dict:
         """
