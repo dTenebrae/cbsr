@@ -132,3 +132,4 @@ dmypy.json
 output/
 src/
 users.json
+visited_urls.log

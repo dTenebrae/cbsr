@@ -485,6 +485,33 @@ class CveChecker:
             json.dump(result, f)
         print(f"Данные пользователей записаны в {USERS_LIST}")
 
+    def create_mozcve(self, url) -> dict:
+        cve_dict = {}
+        resp = self.get_response(url,
+                                 bs=True,
+                                 parser='lxml',
+                                 headers=HEADERS,
+                                 )
+        # Парсим summary в словарь
+        main_sum = resp.find('dl', attrs={'class', 'summary'})
+        for name, item in zip(main_sum.find_all('dt'), main_sum.find_all('dd')):
+            cve_dict["_".join(name.text.lower().split())] = item.text.strip()
+        cve_dict['cves'] = []
+        for cve in resp.find_all('section', attrs={'class', 'cve'}):
+            cve_header = list(map(str.strip, cve.find('a').text[1:].split(':', 1)))
+            cve_dict['cves'].append({
+                'id': cve_header[0],
+                'name': cve_dict['products'].lower().split(',')[0],
+                'vuln_products': cve_dict['products'],
+                'fixed_in': cve_dict['fixed_in'],
+                'description': f"*{cve_header[1]}*\n{cve.find('p').text}",
+                'impact': cve.find('span', attrs={'class', 'level'}).text,
+                'links': [link.find("a").get("href")
+                          for link in cve.find_all('li')],
+                'source': f"{url}#{cve_header[0]}",
+            })
+        return cve_dict
+
     def get_mozilla_cves(self, n=3):
         """
         Собираем cve с мозилловского блога
@@ -497,38 +524,21 @@ class CveChecker:
                                  parser='lxml',
                                  headers=HEADERS,
                                  )
+        # Загружаем список уже посещенных урлов
+        with open('./visited_urls.log', 'r') as url_file:
+            visited_urls = list(map(str.strip, url_file.readlines()))
         result = []
         cnt = 0
         for link in resp.find_all('li', attrs={'class', 'level-item'}):
-            cve_dict = {}
             href = link.find('a')
             if href:
                 link = urljoin('https://www.mozilla.org', href.get('href', ""))
-                resp = self.get_response(link,
-                                         bs=True,
-                                         parser='lxml',
-                                         headers=HEADERS,
-                                         )
-                # Парсим summary в словарь
-                main_sum = resp.find('dl', attrs={'class', 'summary'})
-                for name, item in zip(main_sum.find_all('dt'), main_sum.find_all('dd')):
-                    cve_dict["_".join(name.text.lower().split())] = item.text.strip()
-                cve_dict['cves'] = []
-                for cve in resp.find_all('section', attrs={'class', 'cve'}):
-                    cve_header = list(map(str.strip, cve.find('a').text[1:].split(':', 1)))
-                    cve_dict['cves'].append({
-                        'id': cve_header[0],
-                        'name': cve_dict['products'].lower().split(',')[0],
-                        'vuln_products': cve_dict['products'],
-                        # TODO сделать проверку списков
-                        'fixed_in': cve_dict['fixed_in'].lower(),
-                        'description': f"*{cve_header[1]}*\n{cve.find('p').text}",
-                        'impact': cve.find('span', attrs={'class', 'level'}).text,
-                        'links': [link.find("a").get("href")
-                                  for link in cve.find_all('li')],
-                        'source': f"{link}#{cve_header[0]}",
-                    })
-                result.append(cve_dict)
+                if link in visited_urls:
+                    continue
+                # добавляем новый урл в список посещенных
+                result.append(self.create_mozcve(link))
+                with open('./visited_urls.log', 'a') as url_file:
+                    url_file.write(f"{link}\n")
                 cnt += 1
             if cnt >= n:
                 break
@@ -1301,16 +1311,14 @@ class CveChecker:
                                                                        pkg_data['cve_counter'],
                                                                        exists_count)
 
-        # TODO сделать проверку на уже спарсенные ссылки
-        if MOZ:
-            moz_cves = self.get_mozilla_cves(n=1)
-            for moz_advisories in moz_cves:
-                for cve in moz_advisories['cves']:
-                    if CHECK_REDMINE and self.is_cve_exists_rest_api(cve['id']):
-                        cve_data_list.append(cve)
-                        cve_id_list.append(cve['id'])
-                        # TODO сделать проверку имени пакета
-                        self.pkgs_data[cve['name']]['cve_counter'] += 1
+        moz_cves = self.get_mozilla_cves(n=1)
+        for moz_advisories in moz_cves:
+            for cve in moz_advisories['cves']:
+                if CHECK_REDMINE and self.is_cve_exists_rest_api(cve['id']):
+                    cve_data_list.append(cve)
+                    cve_id_list.append(cve['id'])
+                    # TODO сделать проверку имени пакета
+                    self.pkgs_data[cve['name']]['cve_counter'] += 1
 
         print('-' * 80)
         print("CVEs")
@@ -1361,6 +1369,7 @@ class CveChecker:
         if cve.get('source', ""):
             result += f"\nИсточник:\n\n"
             result += f"* {cve['source']}\n\n"
+            result += "---\n\n"
         else:
             result += f"\nИсточник:\n\n"
             result += f"* https://nvd.nist.gov/vuln/detail/{cve['id']}\n\n"
@@ -1645,11 +1654,7 @@ def parse_args():
         action='store_true',
         help="Создать файл со списком юзеров редмайна"
     )
-    parser.add_argument(
-        '--moz',
-        action='store_true',
-        help="Создать файл со списком юзеров редмайна"
-    )
+
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
     parser.set_defaults(auto=True)
@@ -1672,7 +1677,6 @@ if __name__ == '__main__':
     CVE = arguments.cve
     STAT = arguments.stat
     USERS = arguments.users
-    MOZ = arguments.moz
 
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON, AUTO)
     if CVE:
