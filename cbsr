@@ -464,8 +464,7 @@ class CveChecker:
         # Найдем, сколько раз CVE встречается в поиске
         f_count = resp.find("results").get("total_count")
         try:
-            result = int(f_count)
-            if result:
+            if int(f_count):
                 return bool(exact_search_re.findall(resp.find("description").text))
             return False
         except ValueError:
@@ -538,8 +537,11 @@ class CveChecker:
         result = []
         cnt = 0
         for link in resp.find_all('li', attrs={'class', 'level-item'}):
+            if cnt >= n:
+                break
             href = link.find('a')
             if href:
+                cnt += 1
                 link = urljoin('https://www.mozilla.org', href.get('href', ""))
                 if link in visited_urls:
                     continue
@@ -547,9 +549,6 @@ class CveChecker:
                 result.append(self.create_mozcve(link))
                 with open('./visited_urls.log', 'a') as url_file:
                     url_file.write(f"{link}\n")
-                cnt += 1
-            if cnt >= n:
-                break
         return result
 
     def find_all_issues(self, n=30):
@@ -1339,7 +1338,7 @@ class CveChecker:
         moz_cves = self.get_mozilla_cves(n=1)
         for moz_advisories in moz_cves:
             for cve in moz_advisories['cves']:
-                if CHECK_REDMINE and self.is_cve_exists_rest_api(cve['id']):
+                if CHECK_REDMINE and not self.is_cve_exists_rest_api(cve['id']):
                     cve_data_list.append(cve)
                     cve_id_list.append(cve['id'])
                     # TODO сделать проверку имени пакета
