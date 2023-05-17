@@ -319,6 +319,14 @@ class CveChecker:
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': [int(self.users_dict['oleg.shaposhnikov'])],
             },
+            'curl': {
+                'check_func': self.is_curl_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -487,6 +495,16 @@ class CveChecker:
         def thunderbird_str(str_to_check: str) -> str:
             return 'thunderbird' if 'thunderbird' in str_to_check else str_to_check
 
+        def curl_str(str_to_check: str) -> str:
+            kw_list = [
+                'curl',
+                'libcurl',
+            ]
+            for kw in kw_list:
+                if kw in str_to_check:
+                    return 'curl'
+            return str_to_check
+
         # список из этих функций, чтобы было удобнее итерироваться
         filter_funcs = [
             kernel_str,
@@ -494,6 +512,7 @@ class CveChecker:
             systemd_str,
             nextcloud_str,
             thunderbird_str,
+            curl_str,
         ]
 
         limit = 100
@@ -810,6 +829,25 @@ class CveChecker:
             'www.mozilla.org',
         ]
         if ('firefox' not in desc) or ('thunderbird' not in desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_curl_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к moodle
+        """
+        check_urls = [
+            'security.netapp.com',
+            'hackerone.com',
+        ]
+        if ('curl' not in desc) or ('libcurl' not in desc):
             return IsXIssue.NO
 
         for link in links:
