@@ -359,6 +359,14 @@ class CveChecker:
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
+            'qemu': {
+                'check_func': self.is_qemu_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -976,6 +984,31 @@ class CveChecker:
             if netloc == 'github.com' and path_first == 'ImageMagick':
                 return IsXIssue.YES
             elif netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_qemu_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к qemu
+        """
+
+        check_urls = [
+            'git.qemu.org',
+        ]
+
+        if 'qemu' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 3:
+                path_third = path_split[3]
+                if netloc == 'lists.nongnu.org' and path_third == 'qemu-devel':
+                    return IsXIssue.YES
+            if netloc in check_urls:
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
