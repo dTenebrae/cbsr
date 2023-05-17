@@ -1345,7 +1345,7 @@ class CveChecker:
                     self.pkgs_data[cve['name']]['cve_counter'] += 1
 
         print('-' * 80)
-        print("CVEs")
+        print(f"CVE for {len(self.pkgs_data)} packages")
         print('-' * 80)
         for pkg_name, pkg_data in self.pkgs_data.items():
             # классная арифметическая конструкция - для вычисления пробелов
