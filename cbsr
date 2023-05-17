@@ -383,6 +383,14 @@ class CveChecker:
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
+            'libraw': {
+                'check_func': self.is_libraw_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1069,6 +1077,29 @@ class CveChecker:
             netloc = parse.urlparse(link).netloc
             path_first = parse.urlparse(link).path.split('/')[1]
             if netloc == 'gitlab.com' and path_first == 'libvirt':
+                return IsXIssue.YES
+            elif netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_libraw_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к libraw
+        """
+
+        check_urls = [
+            'www.libraw.org',
+        ]
+
+        if 'libraw' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'LibRaw':
                 return IsXIssue.YES
             elif netloc in check_urls:
                 return IsXIssue.YES
