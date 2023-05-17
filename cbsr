@@ -399,6 +399,14 @@ class CveChecker:
                 'assigned_to': int(self.users_dict['dmitry.safonov']),
                 'watchers': None,
             },
+            'openssl': {
+                'check_func': self.is_openssl_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1134,6 +1142,28 @@ class CveChecker:
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_openssl_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к libraw
+        """
+
+        check_urls = [
+            'git.openssl.org',
+            'www.openssl.org',
+        ]
+
+        found_flag = 'openssl' in desc
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls and found_flag:
+                return IsXIssue.YES
+            elif netloc in check_urls and not found_flag:
+                return IsXIssue.MAYBE
+
+        return IsXIssue.NO
 
     def get_issue(self, name, cve, desc, links, check_patch=True) -> dict:
         """
