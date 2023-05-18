@@ -99,7 +99,7 @@ def compare_versions(ver_a: str, ver_b: str) -> bool:
 def ver_max(ver_list: list) -> str:
     max_atm = "0"
     for ver in ver_list:
-        if compare_versions(max_atm, ver):
+        if compare_versions(ver, max_atm):
             max_atm = ver
     return max_atm
 
@@ -128,10 +128,10 @@ class CveChecker:
                 filter(lambda x: x['epoch'] == latest_epoch, package_list_raw)) \
                 if latest_epoch else package_list_raw
             # старшую версию
-            latest_version = max([i['version'] for i in latest_rpms], key=parse_version)
+            latest_version = ver_max([i['version'] for i in latest_rpms])
             latest_rpms = list(filter(lambda x: x['version'] == latest_version, latest_rpms))
             # и старший релиз
-            latest_release = max([i['release'].split('.')[0] for i in latest_rpms], key=parse_version)
+            latest_release = ver_max([i['release'].split('.')[0] for i in latest_rpms])
             package_list = list(filter(lambda x: x['release'].split('.')[0] == latest_release, latest_rpms))
         else:
             package_list = self.session.getLatestRPMS(tag_name['id'], arch='src', package=package_name)[1]
@@ -404,8 +404,8 @@ class CveChecker:
                 'check_func': self.is_imagemagick_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('imagemagick', self.get_latest_rpm_data('imagemagick', self.kojitag72).get('version', "")),
-                'nvr_os73': ('imagemagick', self.get_latest_rpm_data('imagemagick', self.kojitag73).get('version', "")),
+                'nvr_os72': ('ImageMagick', self.get_latest_rpm_data('ImageMagick', self.kojitag72).get('version', "")),
+                'nvr_os73': ('ImageMagick', self.get_latest_rpm_data('ImageMagick', self.kojitag73).get('version', "")),
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -599,9 +599,11 @@ class CveChecker:
                                  parser='lxml',
                                  headers=HEADERS,
                                  )
-        # Загружаем список уже посещенных урлов
-        with open('./visited_urls.log', 'r') as url_file:
-            visited_urls = list(map(str.strip, url_file.readlines()))
+        visited_urls = []
+        if os.path.exists('./visited_urls.log'):
+            # Загружаем список уже посещенных урлов
+            with open('./visited_urls.log', 'r') as url_file:
+                visited_urls = list(map(str.strip, url_file.readlines()))
         result = []
         cnt = 0
         for link in resp.find_all('li', attrs={'class', 'level-item'}):
