@@ -22,7 +22,6 @@ from collections import Counter
 from dotenv import dotenv_values
 from urllib.parse import urljoin
 from itertools import zip_longest
-from pkg_resources import parse_version
 from datetime import timedelta, date, datetime
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -822,7 +821,7 @@ class CveChecker:
         latest_vim_ver = re.findall(vim_ver_re, vim_source_latest)[0]
         print(f"https://github.com/vim/vim/{vim_source_latest}")
 
-        if parse_version(vuln_ver) >= parse_version(latest_vim_ver):
+        if compare_versions(vuln_ver, latest_vim_ver):
             return
 
         # if parse_version(self.vim_73) > parse_version(vuln_ver):
