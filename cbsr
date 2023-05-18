@@ -1424,12 +1424,12 @@ class CveChecker:
             print(f"{pkg_name}:" + " " * (30 - (len(pkg_name) + 5)) + f"{pkg_data['cve_counter']}")
         print('-' * 80)
         print(f"CVE list:                 {cve_id_list[0] if cve_id_list else ''}")
-        if cve_id_list:
-            for item in cve_id_list:
+        if cve_id_list and len(cve_id_list) > 1:
+            for item in cve_id_list[1:]:
                 print(f"{26 * ' '}{item}")
         print(f"Manual check:             {self.manual_check[0] if self.manual_check else ''}")
-        if self.manual_check:
-            for item in self.manual_check:
+        if self.manual_check and len(self.manual_check) > 1:
+            for item in self.manual_check[1:]:
                 print(f"{26 * ' '}{item}")
         print(f"CVE existed on a tracker: {exists_count}")
         return cve_data_list
