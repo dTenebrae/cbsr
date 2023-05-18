@@ -502,6 +502,18 @@ class CveChecker:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'libreoffice': {
+                        'check_func': self.is_libreoffice_issue,
+                        'cve_counter': 0,
+                        'is_kernel': False,
+                        'nvr_os72': ('libreoffice', self.get_latest_rpm_data('libreoffice',
+                                                                             self.kojitag72).get('version', "")),
+                        'nvr_os73': ('libreoffice', self.get_latest_rpm_data('libreoffice',
+                                                                             self.kojitag73).get('version', "")),
+                        'check_patch': False,
+                        'assigned_to': int(self.users_dict['alexey.rodionov']),
+                        'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1320,6 +1332,26 @@ class CveChecker:
             netloc = parse.urlparse(link).netloc
             path_first = parse.urlparse(link).path.split('/')[1]
             if netloc == 'github.com' and path_first == 'libreswan':
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_libreoffice_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к libraw
+        """
+
+        check_urls = [
+            'www.libreoffice.org',
+        ]
+
+        if 'libreoffice' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
