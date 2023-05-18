@@ -975,12 +975,15 @@ class CveChecker:
             'git.moodle.org',
             'moodle.org',
         ]
-        if 'django' not in desc:
+        if 'moodle' not in desc:
             return IsXIssue.NO
 
         for link in links:
             netloc = parse.urlparse(link).netloc
-            if netloc in check_urls:
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'moodle':
+                return IsXIssue.YES
+            elif netloc in check_urls:
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
@@ -1013,7 +1016,7 @@ class CveChecker:
             'security.netapp.com',
             'hackerone.com',
         ]
-        if ('curl' not in desc) or ('libcurl' not in desc):
+        if ('curl' not in desc) and ('libcurl' not in desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1172,7 +1175,7 @@ class CveChecker:
             'libvirt.org',
         ]
 
-        if 'wireshark' not in desc:
+        if 'libvirt' not in desc:
             return IsXIssue.NO
 
         for link in links:
