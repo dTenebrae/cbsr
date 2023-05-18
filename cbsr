@@ -492,6 +492,16 @@ class CveChecker:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'libreswan': {
+                'check_func': self.is_libreswan_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'nvr_os72': ('libreswan', self.get_latest_rpm_data('libreswan', self.kojitag72).get('version', "")),
+                'nvr_os73': ('libreswan', self.get_latest_rpm_data('libreswan', self.kojitag73).get('version', "")),
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -932,7 +942,7 @@ class CveChecker:
         for link in links:
             netloc = parse.urlparse(link).netloc
             path_first = parse.urlparse(link).path.split('/')[1]
-            if netloc == 'github.com' and path_first == 'redis':
+            if netloc == 'github.com' and (path_first == 'redis' or path_first == 'RedisLabs'):
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
@@ -1297,6 +1307,23 @@ class CveChecker:
 
         return IsXIssue.MAYBE
 
+    @staticmethod
+    def is_libreswan_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к libreswan
+        """
+
+        if 'libreswan' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'libreswan':
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
     def get_issue(self, name, cve, desc, links, check_patch=True) -> dict:
         """
         Разбираем nist json на нужный нам словарь
@@ -1601,10 +1628,10 @@ class CveChecker:
             issues += "---\n\n"
 
         if issues:
-            issues += f"\nВерсия пакета для os72-updates " \
-                      f"{self.pkgs_data[pkg_name]['nvr_72'][0]}-{self.pkgs_data[pkg_name]['nvr_72'][1]}\n"
-            issues += f"\nВерсия пакета для os73-updates " \
-                      f"{self.pkgs_data[pkg_name]['nvr_73'][0]}-{self.pkgs_data[pkg_name]['nvr_73'][1]}\n"
+            issues += f"Версия пакета для os72-updates: " \
+                      f"{self.pkgs_data[pkg_name]['nvr_os72'][0]}-{self.pkgs_data[pkg_name]['nvr_os72'][1]}\n"
+            issues += f"Версия пакета для os73-updates: " \
+                      f"{self.pkgs_data[pkg_name]['nvr_os73'][0]}-{self.pkgs_data[pkg_name]['nvr_os73'][1]}\n"
 
         return issues, patches_found, successful_patches_list
 
