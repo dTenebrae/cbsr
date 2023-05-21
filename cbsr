@@ -522,6 +522,16 @@ class CveChecker:
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
+            'opensearch': {
+                'check_func': self.is_opensearch_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'stapel_name': 'opensearch',
+                'nvr_list': [self.get_latest_rpm_data("opensearch", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'watchers': None,
+            },
         }
 
         self.kernel_paths = [f"{KERNEL_PATH}/linux-{kernel_data}"
@@ -1404,6 +1414,23 @@ class CveChecker:
             netloc = parse.urlparse(link).netloc
             path_first = parse.urlparse(link).path.split('/')[1]
             if netloc == 'github.com' and path_first == 'podofo':
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_opensearch_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к opensearch
+        """
+
+        if 'opensearch' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'opensearch-project':
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
