@@ -542,6 +542,16 @@ class CveChecker:
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
+            'flask': {
+                'check_func': self.is_flask_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'stapel_name': 'python-flask',
+                'nvr_list': [self.get_latest_rpm_data("python-flask", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'watchers': None,
+            },
         }
 
         self.kernel_paths = [f"{KERNEL_PATH}/linux-{kernel_data}"
@@ -1459,6 +1469,24 @@ class CveChecker:
             path_split = parse.urlparse(link).path.split('/')
             if len(path_split) > 2:
                 if netloc == 'github.com' and (path_split[1] == 'strukturag' and path_split[2] == 'libheif'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_flask_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к flask
+        """
+
+        if 'flask' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and (path_split[1] == 'pallets' and path_split[2] == 'flask'):
                     return IsXIssue.YES
 
         return IsXIssue.MAYBE
