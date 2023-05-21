@@ -30,6 +30,11 @@ os.chdir("/home/tenebrae/devel/cbsr/")
 # ############################ КОНСТАНТЫ #############################
 NUMBER_OF_RECON = 5
 
+TAG_LIST = [
+    "os72-updates",
+    "os73-updates",
+]
+
 OS72_TAG = "os72-updates"
 OS73_TAG = "os73-updates"
 KOJI_URL = "http://10.81.1.26/kojihub"
@@ -208,17 +213,10 @@ class CveChecker:
             self.get_users_list()
 
         # если нет сорцов для какой либо версии проверяемых ядер - скачиваем и распаковываем их
-        if self.kernel_72 == self.kernel_73:
-            if not os.path.exists(f"{KERNEL_PATH}/linux-{self.kernel_73}"):
-                print(f"Downloading sources for linux kernel {self.kernel_73}")
-                self.download_kernel_src(self.kernel_73)
-        else:
-            if not os.path.exists(f"{KERNEL_PATH}/linux-{self.kernel_72}"):
-                print(f"Downloading sources for linux kernel {self.kernel_72}")
-                self.download_kernel_src(self.kernel_72)
-            elif not os.path.exists(f"{KERNEL_PATH}/linux-{self.kernel_73}"):
-                print(f"Downloading sources for linux kernel {self.kernel_73}")
-                self.download_kernel_src(self.kernel_73)
+        for kern_path in set(self.kernel_paths):
+            if not os.path.exists(kern_path):
+                print(f"Downloading sources for linux kernel: {kern_path}")
+                self.download_kernel_src(kern_path)
 
         # if not os.path.exists(DEST_PATCH_PATH):
         #     os.makedirs(DEST_PATCH_PATH)
@@ -234,14 +232,8 @@ class CveChecker:
         self.session = koji.ClientSession(KOJI_URL)
 
         # Получаем версии ядра для требуемых тегов.
-        self.kojitag72 = self.session.getTag(OS72_TAG)
-        self.kojitag73 = self.session.getTag(OS73_TAG)
-        self.kernel_72 = self.get_latest_rpm_data("kernel-lt", self.kojitag72)['version']
-        self.kernel_73 = self.get_latest_rpm_data("kernel-lt", self.kojitag73)['version']
-        self.kernel_72_path, self.kernel_73_path = f"{KERNEL_PATH}/linux-{self.kernel_72}", \
-            f"{KERNEL_PATH}/linux-{self.kernel_73}"
+        self.tags = [self.session.getTag(tag) for tag in TAG_LIST]
 
-        self.__prepare_dirs()
         self.redmine = self.__redmine_auth()
         # self.vulners = self.__vulners_auth()
 
@@ -259,8 +251,8 @@ class CveChecker:
                 'check_func': self.is_kernel_issue,
                 'cve_counter': 0,
                 'is_kernel': True,  # убрать, потому как ничто не ядро, кроме ядра
-                'nvr_os72': ('kernel-lt', self.get_latest_rpm_data('kernel-lt', self.kojitag72).get('version', "")),
-                'nvr_os73': ('kernel-lt', self.get_latest_rpm_data('kernel-lt', self.kojitag73).get('version', "")),
+                'stapel_name': 'kernel-lt',
+                'nvr_list': [self.get_latest_rpm_data("kernel-lt", tag).get('version', "") for tag in self.tags],
                 'check_patch': True,
                 'assigned_to': int(self.users_dict['artem.chernyshev']),
                 'watchers': [int(self.users_dict['artem.chernyshev'])],
@@ -269,8 +261,8 @@ class CveChecker:
                 'check_func': self.is_vim_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('vim', self.get_latest_rpm_data('vim', self.kojitag72).get('version', "")),
-                'nvr_os73': ('vim', self.get_latest_rpm_data('vim', self.kojitag73).get('version', "")),
+                'stapel_name': 'vim',
+                'nvr_list': [self.get_latest_rpm_data("vim", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['artem.chernyshev']),
                 'watchers': [int(self.users_dict['artem.chernyshev'])],
@@ -279,8 +271,8 @@ class CveChecker:
                 'check_func': self.is_nextcloud_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('nextcloud', self.get_latest_rpm_data('nextcloud', self.kojitag72).get('version', "")),
-                'nvr_os73': ('nextcloud', self.get_latest_rpm_data('nextcloud', self.kojitag73).get('version', "")),
+                'stapel_name': 'nextcloud',
+                'nvr_list': [self.get_latest_rpm_data("nextcloud", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
@@ -289,8 +281,8 @@ class CveChecker:
                 'check_func': self.is_gpac_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('gpac', self.get_latest_rpm_data('gpac', self.kojitag72).get('version', "")),
-                'nvr_os73': ('gpac', self.get_latest_rpm_data('gpac', self.kojitag73).get('version', "")),
+                'stapel_name': 'gpac',
+                'nvr_list': [self.get_latest_rpm_data("gpac", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -299,8 +291,8 @@ class CveChecker:
                 'check_func': self.is_redis_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('redis', self.get_latest_rpm_data('redis', self.kojitag72).get('version', "")),
-                'nvr_os73': ('redis', self.get_latest_rpm_data('redis', self.kojitag73).get('version', "")),
+                'stapel_name': 'redis',
+                'nvr_list': [self.get_latest_rpm_data("redis", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
@@ -309,8 +301,8 @@ class CveChecker:
                 'check_func': self.is_systemd_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('systemd', self.get_latest_rpm_data('systemd', self.kojitag72).get('version', "")),
-                'nvr_os73': ('systemd', self.get_latest_rpm_data('systemd', self.kojitag73).get('version', "")),
+                'stapel_name': 'systemd',
+                'nvr_list': [self.get_latest_rpm_data("systemd", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -319,10 +311,8 @@ class CveChecker:
                 'check_func': self.is_django_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('python-django', self.get_latest_rpm_data('python-django',
-                                                                       self.kojitag72).get('version', "")),
-                'nvr_os73': ('python-django', self.get_latest_rpm_data('python-django',
-                                                                       self.kojitag73).get('version', "")),
+                'stapel_name': 'python-django',
+                'nvr_list': [self.get_latest_rpm_data("python-django", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
                                        int(self.users_dict['ilia.polyvyanyy'])]),
@@ -332,8 +322,8 @@ class CveChecker:
                 'check_func': self.is_moodle_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('moodle', self.get_latest_rpm_data('moodle', self.kojitag72).get('version', "")),
-                'nvr_os73': ('moodle', self.get_latest_rpm_data('moodle', self.kojitag73).get('version', "")),
+                'stapel_name': 'moodle',
+                'nvr_list': [self.get_latest_rpm_data("moodle", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vladislav.mitin']),
                                        int(self.users_dict['ilia.polyvyanyy'])]),
@@ -343,8 +333,8 @@ class CveChecker:
                 'check_func': self.is_mozilla_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('firefox', self.get_latest_rpm_data('firefox', self.kojitag72).get('version', "")),
-                'nvr_os73': ('firefox', self.get_latest_rpm_data('firefox', self.kojitag73).get('version', "")),
+                'stapel_name': 'firefox',
+                'nvr_list': [self.get_latest_rpm_data("firefox", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': [int(self.users_dict['oleg.shaposhnikov'])],
@@ -353,8 +343,8 @@ class CveChecker:
                 'check_func': self.is_mozilla_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('thunderbird', self.get_latest_rpm_data('thunderbird', self.kojitag72).get('version', "")),
-                'nvr_os73': ('thunderbird', self.get_latest_rpm_data('thunderbird', self.kojitag73).get('version', "")),
+                'stapel_name': 'thunderbird',
+                'nvr_list': [self.get_latest_rpm_data("thunderbird", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': [int(self.users_dict['oleg.shaposhnikov'])],
@@ -363,8 +353,8 @@ class CveChecker:
                 'check_func': self.is_curl_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('curl', self.get_latest_rpm_data('curl', self.kojitag72).get('version', "")),
-                'nvr_os73': ('curl', self.get_latest_rpm_data('curl', self.kojitag73).get('version', "")),
+                'stapel_name': 'curl',
+                'nvr_list': [self.get_latest_rpm_data("curl", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
@@ -373,8 +363,8 @@ class CveChecker:
                 'check_func': self.is_glpi_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('glpi', self.get_latest_rpm_data('glpi', self.kojitag72).get('version', "")),
-                'nvr_os73': ('glpi', self.get_latest_rpm_data('glpi', self.kojitag73).get('version', "")),
+                'stapel_name': 'glpi',
+                'nvr_list': [self.get_latest_rpm_data("glpi", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['ilia.polyvyanyy']),
                 'watchers': None,
@@ -383,8 +373,8 @@ class CveChecker:
                 'check_func': self.is_libtiff_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('libtiff', self.get_latest_rpm_data('libtiff', self.kojitag72).get('version', "")),
-                'nvr_os73': ('libtiff', self.get_latest_rpm_data('libtiff', self.kojitag73).get('version', "")),
+                'stapel_name': 'libtiff',
+                'nvr_list': [self.get_latest_rpm_data("libtiff", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -393,8 +383,8 @@ class CveChecker:
                 'check_func': self.is_grafana_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('grafana', self.get_latest_rpm_data('grafana', self.kojitag72).get('version', "")),
-                'nvr_os73': ('grafana', self.get_latest_rpm_data('grafana', self.kojitag73).get('version', "")),
+                'stapel_name': 'grafana',
+                'nvr_list': [self.get_latest_rpm_data("grafana", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -403,8 +393,8 @@ class CveChecker:
                 'check_func': self.is_imagemagick_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('ImageMagick', self.get_latest_rpm_data('ImageMagick', self.kojitag72).get('version', "")),
-                'nvr_os73': ('ImageMagick', self.get_latest_rpm_data('ImageMagick', self.kojitag73).get('version', "")),
+                'stapel_name': 'ImageMagick',
+                'nvr_list': [self.get_latest_rpm_data("ImageMagick", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -413,8 +403,8 @@ class CveChecker:
                 'check_func': self.is_qemu_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('qemu', self.get_latest_rpm_data('qemu', self.kojitag72).get('version', "")),
-                'nvr_os73': ('qemu', self.get_latest_rpm_data('qemu', self.kojitag73).get('version', "")),
+                'stapel_name': 'qemu',
+                'nvr_list': [self.get_latest_rpm_data("qemu", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -423,8 +413,8 @@ class CveChecker:
                 'check_func': self.is_wireshark_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('wireshark', self.get_latest_rpm_data('wireshark', self.kojitag72).get('version', "")),
-                'nvr_os73': ('wireshark', self.get_latest_rpm_data('wireshark', self.kojitag73).get('version', "")),
+                'stapel_name': 'wireshark',
+                'nvr_list': [self.get_latest_rpm_data("wireshark", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -433,8 +423,8 @@ class CveChecker:
                 'check_func': self.is_libvirt_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('libvirt', self.get_latest_rpm_data('libvirt', self.kojitag72).get('version', "")),
-                'nvr_os73': ('libvirt', self.get_latest_rpm_data('libvirt', self.kojitag73).get('version', "")),
+                'stapel_name': 'libvirt',
+                'nvr_list': [self.get_latest_rpm_data("libvirt", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
                                        int(self.users_dict['vladislav.mitin']),
@@ -445,8 +435,8 @@ class CveChecker:
                 'check_func': self.is_libraw_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('LibRaw', self.get_latest_rpm_data('LibRaw', self.kojitag72).get('version', "")),
-                'nvr_os73': ('LibRaw', self.get_latest_rpm_data('LibRaw', self.kojitag73).get('version', "")),
+                'stapel_name': 'LibRaw',
+                'nvr_list': [self.get_latest_rpm_data("LibRaw", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -455,8 +445,8 @@ class CveChecker:
                 'check_func': self.is_samba_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('samba', self.get_latest_rpm_data('samba', self.kojitag72).get('version', "")),
-                'nvr_os73': ('samba', self.get_latest_rpm_data('samba', self.kojitag73).get('version', "")),
+                'stapel_name': 'samba',
+                'nvr_list': [self.get_latest_rpm_data("samba", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['dmitry.safonov']),
                 'watchers': None,
@@ -465,8 +455,8 @@ class CveChecker:
                 'check_func': self.is_openssl_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('openssl', self.get_latest_rpm_data('openssl', self.kojitag72).get('version', "")),
-                'nvr_os73': ('openssl', self.get_latest_rpm_data('openssl', self.kojitag73).get('version', "")),
+                'stapel_name': 'openssl',
+                'nvr_list': [self.get_latest_rpm_data("openssl", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vladislav.mitin']),
                                        int(self.users_dict['ilia.polyvyanyy'])]),
@@ -476,8 +466,8 @@ class CveChecker:
                 'check_func': self.is_yasm_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('yasm', self.get_latest_rpm_data('yasm', self.kojitag72).get('version', "")),
-                'nvr_os73': ('yasm', self.get_latest_rpm_data('yasm', self.kojitag73).get('version', "")),
+                'stapel_name': 'yasm',
+                'nvr_list': [self.get_latest_rpm_data("yasm", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -486,8 +476,8 @@ class CveChecker:
                 'check_func': self.is_emacs_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('emacs', self.get_latest_rpm_data('emacs', self.kojitag72).get('version', "")),
-                'nvr_os73': ('emacs', self.get_latest_rpm_data('emacs', self.kojitag73).get('version', "")),
+                'stapel_name': 'emacs',
+                'nvr_list': [self.get_latest_rpm_data("emacs", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -496,35 +486,37 @@ class CveChecker:
                 'check_func': self.is_libreswan_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('libreswan', self.get_latest_rpm_data('libreswan', self.kojitag72).get('version', "")),
-                'nvr_os73': ('libreswan', self.get_latest_rpm_data('libreswan', self.kojitag73).get('version', "")),
+                'stapel_name': 'libreswan',
+                'nvr_list': [self.get_latest_rpm_data("libreswan", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
             'libreoffice': {
-                        'check_func': self.is_libreoffice_issue,
-                        'cve_counter': 0,
-                        'is_kernel': False,
-                        'nvr_os72': ('libreoffice', self.get_latest_rpm_data('libreoffice',
-                                                                             self.kojitag72).get('version', "")),
-                        'nvr_os73': ('libreoffice', self.get_latest_rpm_data('libreoffice',
-                                                                             self.kojitag73).get('version', "")),
-                        'check_patch': False,
-                        'assigned_to': int(self.users_dict['alexey.rodionov']),
-                        'watchers': None,
+                'check_func': self.is_libreoffice_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'stapel_name': 'libreoffice',
+                'nvr_list': [self.get_latest_rpm_data("libreoffice", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
             },
             'sudo': {
                 'check_func': self.is_sudo_issue,
                 'cve_counter': 0,
                 'is_kernel': False,
-                'nvr_os72': ('sudo', self.get_latest_rpm_data('sudo', self.kojitag72).get('version', "")),
-                'nvr_os73': ('sudo', self.get_latest_rpm_data('sudo', self.kojitag73).get('version', "")),
+                'stapel_name': 'sudo',
+                'nvr_list': [self.get_latest_rpm_data("sudo", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
         }
+
+        self.kernel_paths = [f"{KERNEL_PATH}/linux-{kernel_data}"
+                             for kernel_data in self.pkgs_data['kernel']['nvr_list']]
+        self.__prepare_dirs()
 
     @staticmethod
     def get_response(*args, bs=True, parser='lxml', **kwargs):
@@ -870,7 +862,7 @@ class CveChecker:
         # TODO выведем сообщение что у нас версия vim не подверженая уязвимости
         # return
 
-        print(self.get_rpm_path('vim', self.kojitag73))
+        # print(self.get_rpm_path('vim', self.kojitag73))
 
     @staticmethod
     def is_kernel_issue(desc, links) -> IsXIssue:
@@ -1675,28 +1667,33 @@ class CveChecker:
                 patch_path = f"{TMP_PATCHES_PATH}/000{i + 1}_{single_cve['id']}.patch"
                 with open(patch_path, "w") as f:
                     f.write(patch['patch_text'])
-                # Пробуем применить патч к актуальной версии ядра
+                # Пробуем применить патч к разным версиям ядра
                 if CHECK_PATCH:
-                    patching_result = self.apply_patches(self.kernel_73_path,
-                                                         patch_path)
-                    issues += "Актуальность патча:\n"
-                    if patching_result == PatchResult.FAILED:
-                        issues += "* Не удалось применить\n\n"
-                    elif patching_result == PatchResult.ALREADY_APPLIED:
-                        issues += "* Уже применен\n\n"
-                    elif patching_result == PatchResult.NO_FILE:
-                        issues += "* Нет файла для применения\n\n"
-                    elif patching_result == PatchResult.SUCCESS:
-                        issues += "* Применен успешно\n\n"
-                        successful_patches_list.append((patch_path, single_cve['id']))
+                    issues += "Актуальность патча:\n\n"
+
+                    for kern_path in self.kernel_paths:
+                        current_ver = re.findall(r"linux-(\d\.\d+\.\d+)", kern_path)[0]
+                        patching_result = self.apply_patches(kern_path, patch_path)
+                        issues += f"Для версии {current_ver}:\n"
+
+                        if patching_result == PatchResult.FAILED:
+                            issues += "* Не удалось применить\n\n"
+                        elif patching_result == PatchResult.ALREADY_APPLIED:
+                            issues += "* Уже применен\n\n"
+                        elif patching_result == PatchResult.NO_FILE:
+                            issues += "* Нет файла для применения\n\n"
+                        elif patching_result == PatchResult.SUCCESS:
+                            issues += "* Применен успешно\n\n"
+                            successful_patches_list.append((patch_path,
+                                                            single_cve['id'],
+                                                            current_ver))
 
             issues += "---\n\n"
 
         if issues:
-            issues += f"Версия пакета для os72-updates: " \
-                      f"{self.pkgs_data[pkg_name]['nvr_os72'][0]}-{self.pkgs_data[pkg_name]['nvr_os72'][1]}\n"
-            issues += f"Версия пакета для os73-updates: " \
-                      f"{self.pkgs_data[pkg_name]['nvr_os73'][0]}-{self.pkgs_data[pkg_name]['nvr_os73'][1]}\n"
+            for tag, pkg_data in zip(self.tags, self.pkgs_data[pkg_name]['nvr_list']):
+                issues += f"Версия пакета для {tag['name']}: " \
+                          f"{self.pkgs_data[pkg_name]['stapel_name']}-{pkg_data}\n"
 
         return issues, patches_found, successful_patches_list
 
@@ -1770,8 +1767,8 @@ class CveChecker:
 
         if is_kernel and check_patch and successful_patches_list:
             for i, item in enumerate(successful_patches_list):
-                dest_patch = f"{DEST_PATCH_PATH}/patches-{self.kernel_73}/" \
-                             f"000{i}_kernel-lt-{self.kernel_73}_{item[1]}_{issue_id}.patch"
+                dest_patch = f"{DEST_PATCH_PATH}/patches-{item[2]}/" \
+                             f"000{i}_kernel-lt-{item[2]}_{item[1]}_{issue_id}.patch"
                 Path(item[0]).rename(dest_patch)
                 print(f"Patch created: {dest_patch}")
 
