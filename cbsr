@@ -1781,7 +1781,7 @@ class CveChecker:
                 if CHECK_PATCH:
                     issues += "Актуальность патча:\n\n"
 
-                    for kern_path in self.kernel_paths:
+                    for kern_path in set(self.kernel_paths):
                         current_ver = re.findall(r"linux-(\d\.\d+\.\d+)", kern_path)[0]
                         patching_result = self.apply_patches(kern_path, patch_path)
                         issues += f"Для версии {current_ver}:\n"
