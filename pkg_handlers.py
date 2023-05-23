@@ -422,6 +422,17 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'nginx': {
+                'check_func': self.is_nginx_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'stapel_name': 'nginx',
+                'nvr_list': [self.get_latest_rpm_data("nginx", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
+                                       int(self.users_dict['vladislav.mitin'])]),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1033,7 +1044,7 @@ class PkgHandler:
     @staticmethod
     def is_lua_issue(desc, links) -> IsXIssue:
         """
-        Проверка на то, что уязвимость относится к sudo
+        Проверка на то, что уязвимость относится к lua
         """
 
         check_urls = [
@@ -1049,6 +1060,23 @@ class PkgHandler:
             if netloc == 'github.com' and path_first == 'lua':
                 return IsXIssue.YES
             elif netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_nginx_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к nginx
+        """
+
+        if 'nginx' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'nginx':
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
