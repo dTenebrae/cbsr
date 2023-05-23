@@ -672,7 +672,7 @@ class CveChecker:
         Формирует строку для последующего создания темы на трекере
         """
         result = ""
-        result += f"h5. Уязвимость {cve['id']}\n\n"
+        result += f"*Уязвимость {cve['id']}*\n\n"
         result += f"Описание:\n"
         result += f"{cve['description']}\n\n"
         if cve.get('scores', ""):
