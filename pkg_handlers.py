@@ -433,6 +433,17 @@ class PkgHandler:
                                        int(self.users_dict['vladislav.mitin'])]),
                 'watchers': None,
             },
+            'tcpdump': {
+                'check_func': self.is_tcpdump_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'stapel_name': 'tcpdump',
+                'nvr_list': [self.get_latest_rpm_data("tcpdump", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
+                                       int(self.users_dict['alexey.rodionov'])]),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1078,5 +1089,24 @@ class PkgHandler:
             path_first = parse.urlparse(link).path.split('/')[1]
             if netloc == 'github.com' and path_first == 'nginx':
                 return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_tcpdump_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к cups-filters
+        """
+
+        if 'tcpdump' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'the-tcpdump-group' and path_split[2] == 'tcpdump'):
+                    return IsXIssue.YES
 
         return IsXIssue.MAYBE
