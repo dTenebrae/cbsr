@@ -402,6 +402,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
+            'cups-filters': {
+                'check_func': self.is_cups_filters_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'stapel_name': 'cups-filters',
+                'nvr_list': [self.get_latest_rpm_data("cups-filters", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -987,6 +997,25 @@ class PkgHandler:
             path_split = parse.urlparse(link).path.split('/')
             if len(path_split) > 2:
                 if netloc == 'github.com' and (path_split[1] == 'pallets' and path_split[2] == 'flask'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_cups_filters_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к cups-filters
+        """
+
+        if 'cups-filters' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'OpenPrinting' and path_split[2] == 'cups-filters'):
                     return IsXIssue.YES
 
         return IsXIssue.MAYBE
