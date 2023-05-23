@@ -412,6 +412,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
+            'lua': {
+                'check_func': self.is_lua_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'stapel_name': 'lua',
+                'nvr_list': [self.get_latest_rpm_data("lua", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1017,5 +1027,28 @@ class PkgHandler:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'OpenPrinting' and path_split[2] == 'cups-filters'):
                     return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_lua_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к sudo
+        """
+
+        check_urls = [
+            'www.lua.org',
+        ]
+
+        if 'lua' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'lua':
+                return IsXIssue.YES
+            elif netloc in check_urls:
+                return IsXIssue.YES
 
         return IsXIssue.MAYBE
