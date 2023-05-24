@@ -419,6 +419,15 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['artem.chernyshev']),
                 'watchers': None,
             },
+            'flatpak': {
+                'check_func': self.is_flatpak_issue,
+                'cve_counter': 0,
+                'stapel_name': 'flatpak',
+                'nvr_list': [self.get_latest_rpm_data("flatpak", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['ilia.polyvyanyy']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1101,6 +1110,25 @@ class PkgHandler:
             if len(path_split) > 2:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'tmux' and path_split[2] == 'tmux'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_flatpak_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к flatpak
+        """
+
+        if 'flatpak' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'flatpak' and path_split[2] == 'flatpak'):
                     return IsXIssue.YES
 
         return IsXIssue.MAYBE
