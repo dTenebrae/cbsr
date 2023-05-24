@@ -444,6 +444,16 @@ class PkgHandler:
                                        int(self.users_dict['alexey.rodionov'])]),
                 'watchers': None,
             },
+            'tmux': {
+                'check_func': self.is_tmux_issue,
+                'cve_counter': 0,
+                'is_kernel': False,
+                'stapel_name': 'tmux',
+                'nvr_list': [self.get_latest_rpm_data("tmux", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['artem.chernyshev']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1095,7 +1105,7 @@ class PkgHandler:
     @staticmethod
     def is_tcpdump_issue(desc, links) -> IsXIssue:
         """
-        Проверка на то, что уязвимость относится к cups-filters
+        Проверка на то, что уязвимость относится к tcpdump
         """
 
         if 'tcpdump' not in desc:
@@ -1107,6 +1117,25 @@ class PkgHandler:
             if len(path_split) > 2:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'the-tcpdump-group' and path_split[2] == 'tcpdump'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_tmux_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к tmux
+        """
+
+        if 'tmux' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'tmux' and path_split[2] == 'tmux'):
                     return IsXIssue.YES
 
         return IsXIssue.MAYBE
