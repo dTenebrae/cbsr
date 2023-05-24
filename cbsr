@@ -840,7 +840,6 @@ class CveChecker:
     def check_and_post(self,
                        pkg_name,
                        all_cves,
-                       is_kernel: bool,
                        check_patch: bool,
                        assigned_id=23,  # 23 - Владимир Чиркин
                        watcher_ids=None,
@@ -850,7 +849,6 @@ class CveChecker:
         Разделяем по пакетам: ядро, вим и т.д.
         :param pkg_name: Имя пакета
         :param all_cves: Полный список отобранных cve
-        :param is_kernel: Флаг ядреной уязвимости
         :param check_patch: Проверяли патчи или нет
         :param assigned_id: Кому назначено
         :param watcher_ids: Кто наблюдатели (в виде list'a)
@@ -869,6 +867,8 @@ class CveChecker:
             return
         if not self.auto and not self.user_wants_create_issue():
             return
+
+        is_kernel = pkg_name == 'kernel'
         if is_kernel:
             subject = 'Множественные уязвимости в ядре Linux' \
                 if (len(pkg_cves) > 1) else 'Уязвимость в ядре Linux'
@@ -909,7 +909,6 @@ class CveChecker:
         for pkg_name, pkg_data in self.pkg_handler.pkgs_data.items():
             self.check_and_post(pkg_name,
                                 all_cves,
-                                is_kernel=pkg_data['is_kernel'],
                                 check_patch=pkg_data['check_patch'],
                                 assigned_id=pkg_data['assigned_to'],
                                 watcher_ids=pkg_data['watchers'])

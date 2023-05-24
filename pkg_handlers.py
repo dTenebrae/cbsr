@@ -100,7 +100,6 @@ class PkgHandler:
             'kernel': {
                 'check_func': self.is_kernel_issue,
                 'cve_counter': 0,
-                'is_kernel': True,  # убрать, потому как ничто не ядро, кроме ядра
                 'stapel_name': 'kernel-lt',
                 'nvr_list': [self.get_latest_rpm_data("kernel-lt", tag).get('version', "") for tag in self.tags],
                 'check_patch': True,
@@ -110,7 +109,6 @@ class PkgHandler:
             'vim': {
                 'check_func': self.is_vim_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'vim',
                 'nvr_list': [self.get_latest_rpm_data("vim", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -120,7 +118,6 @@ class PkgHandler:
             'nextcloud': {
                 'check_func': self.is_nextcloud_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'nextcloud',
                 'nvr_list': [self.get_latest_rpm_data("nextcloud", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -130,7 +127,6 @@ class PkgHandler:
             'gpac': {
                 'check_func': self.is_gpac_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'gpac',
                 'nvr_list': [self.get_latest_rpm_data("gpac", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -140,7 +136,6 @@ class PkgHandler:
             'redis': {
                 'check_func': self.is_redis_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'redis',
                 'nvr_list': [self.get_latest_rpm_data("redis", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -150,7 +145,6 @@ class PkgHandler:
             'systemd': {
                 'check_func': self.is_systemd_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'systemd',
                 'nvr_list': [self.get_latest_rpm_data("systemd", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -160,7 +154,6 @@ class PkgHandler:
             'django': {
                 'check_func': self.is_django_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'python-django',
                 'nvr_list': [self.get_latest_rpm_data("python-django", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -171,7 +164,6 @@ class PkgHandler:
             'moodle': {
                 'check_func': self.is_moodle_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'moodle',
                 'nvr_list': [self.get_latest_rpm_data("moodle", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -182,7 +174,6 @@ class PkgHandler:
             'firefox': {
                 'check_func': self.is_mozilla_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'firefox',
                 'nvr_list': [self.get_latest_rpm_data("firefox", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -192,7 +183,6 @@ class PkgHandler:
             'thunderbird': {
                 'check_func': self.is_mozilla_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'thunderbird',
                 'nvr_list': [self.get_latest_rpm_data("thunderbird", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -202,7 +192,6 @@ class PkgHandler:
             'curl': {
                 'check_func': self.is_curl_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'curl',
                 'nvr_list': [self.get_latest_rpm_data("curl", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -212,7 +201,6 @@ class PkgHandler:
             'glpi': {
                 'check_func': self.is_glpi_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'glpi',
                 'nvr_list': [self.get_latest_rpm_data("glpi", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -222,7 +210,6 @@ class PkgHandler:
             'libtiff': {
                 'check_func': self.is_libtiff_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'libtiff',
                 'nvr_list': [self.get_latest_rpm_data("libtiff", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -232,7 +219,6 @@ class PkgHandler:
             'grafana': {
                 'check_func': self.is_grafana_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'grafana',
                 'nvr_list': [self.get_latest_rpm_data("grafana", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -242,7 +228,6 @@ class PkgHandler:
             'imagemagick': {
                 'check_func': self.is_imagemagick_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'ImageMagick',
                 'nvr_list': [self.get_latest_rpm_data("ImageMagick", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -252,7 +237,6 @@ class PkgHandler:
             'qemu': {
                 'check_func': self.is_qemu_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'qemu',
                 'nvr_list': [self.get_latest_rpm_data("qemu", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -262,7 +246,6 @@ class PkgHandler:
             'wireshark': {
                 'check_func': self.is_wireshark_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'wireshark',
                 'nvr_list': [self.get_latest_rpm_data("wireshark", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -272,7 +255,6 @@ class PkgHandler:
             'libvirt': {
                 'check_func': self.is_libvirt_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'libvirt',
                 'nvr_list': [self.get_latest_rpm_data("libvirt", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -284,7 +266,6 @@ class PkgHandler:
             'libraw': {
                 'check_func': self.is_libraw_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'LibRaw',
                 'nvr_list': [self.get_latest_rpm_data("LibRaw", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -294,7 +275,6 @@ class PkgHandler:
             'samba': {
                 'check_func': self.is_samba_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'samba',
                 'nvr_list': [self.get_latest_rpm_data("samba", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -304,7 +284,6 @@ class PkgHandler:
             'openssl': {
                 'check_func': self.is_openssl_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'openssl',
                 'nvr_list': [self.get_latest_rpm_data("openssl", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -315,7 +294,6 @@ class PkgHandler:
             'yasm': {
                 'check_func': self.is_yasm_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'yasm',
                 'nvr_list': [self.get_latest_rpm_data("yasm", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -325,7 +303,6 @@ class PkgHandler:
             'emacs': {
                 'check_func': self.is_emacs_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'emacs',
                 'nvr_list': [self.get_latest_rpm_data("emacs", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -335,7 +312,6 @@ class PkgHandler:
             'libreswan': {
                 'check_func': self.is_libreswan_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'libreswan',
                 'nvr_list': [self.get_latest_rpm_data("libreswan", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -345,7 +321,6 @@ class PkgHandler:
             'libreoffice': {
                 'check_func': self.is_libreoffice_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'libreoffice',
                 'nvr_list': [self.get_latest_rpm_data("libreoffice", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -355,7 +330,6 @@ class PkgHandler:
             'sudo': {
                 'check_func': self.is_sudo_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'sudo',
                 'nvr_list': [self.get_latest_rpm_data("sudo", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -365,7 +339,6 @@ class PkgHandler:
             'podofo': {
                 'check_func': self.is_podofo_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'podofo',
                 'nvr_list': [self.get_latest_rpm_data("podofo", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -375,7 +348,6 @@ class PkgHandler:
             'opensearch': {
                 'check_func': self.is_opensearch_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'opensearch',
                 'nvr_list': [self.get_latest_rpm_data("opensearch", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -385,7 +357,6 @@ class PkgHandler:
             'libheif': {
                 'check_func': self.is_libheif_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'libheif',
                 'nvr_list': [self.get_latest_rpm_data("libheif", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -395,7 +366,6 @@ class PkgHandler:
             'flask': {
                 'check_func': self.is_flask_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'python-flask',
                 'nvr_list': [self.get_latest_rpm_data("python-flask", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -405,7 +375,6 @@ class PkgHandler:
             'cups-filters': {
                 'check_func': self.is_cups_filters_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'cups-filters',
                 'nvr_list': [self.get_latest_rpm_data("cups-filters", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -415,7 +384,6 @@ class PkgHandler:
             'lua': {
                 'check_func': self.is_lua_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'lua',
                 'nvr_list': [self.get_latest_rpm_data("lua", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -425,7 +393,6 @@ class PkgHandler:
             'nginx': {
                 'check_func': self.is_nginx_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'nginx',
                 'nvr_list': [self.get_latest_rpm_data("nginx", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -436,7 +403,6 @@ class PkgHandler:
             'tcpdump': {
                 'check_func': self.is_tcpdump_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'tcpdump',
                 'nvr_list': [self.get_latest_rpm_data("tcpdump", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
@@ -447,7 +413,6 @@ class PkgHandler:
             'tmux': {
                 'check_func': self.is_tmux_issue,
                 'cve_counter': 0,
-                'is_kernel': False,
                 'stapel_name': 'tmux',
                 'nvr_list': [self.get_latest_rpm_data("tmux", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
