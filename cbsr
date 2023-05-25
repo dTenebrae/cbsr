@@ -686,8 +686,8 @@ class CveChecker:
             result += f'Исправлено:\n'
             result += f"* *{cve['fixed_in']}*\n"
         if cve.get('patch', ""):
-            for item in cve['patch']:
-                result += f'\nДанные патча:\n\n'
+            for i, item in enumerate(cve['patch'], start=1):
+                result += f'\nДанные патча №{i}:\n\n'
                 result += f"* Дата: {item['date']}\n"
                 if item['fixes']:
                     result += f"* Уязвимый коммит: https://github.com/torvalds/linux/commit/" \
@@ -785,13 +785,13 @@ class CveChecker:
             if not single_cve.get('patch', "") and not check_patch:
                 continue
             patches_found += 1
-            for i, patch in enumerate(single_cve['patch']):
-                patch_path = f"{TMP_PATCHES_PATH}/000{i + 1}_{single_cve['id']}.patch"
+            for i, patch in enumerate(single_cve['patch'], start=1):
+                patch_path = f"{TMP_PATCHES_PATH}/000{i}_{single_cve['id']}.patch"
                 with open(patch_path, "w") as f:
                     f.write(patch['patch_text'])
                 # Пробуем применить патч к разным версиям ядра
                 if CHECK_PATCH:
-                    issues += "Актуальность патча:\n\n"
+                    issues += f"Актуальность патча №{i}:\n\n"
 
                     for kern_path in set(self.kernel_paths):
                         current_ver = re.findall(r"linux-(\d\.\d+\.\d+)", kern_path)[0]
