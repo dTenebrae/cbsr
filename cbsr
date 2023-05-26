@@ -319,16 +319,17 @@ class CveChecker:
                     links = [url.text.strip() for url in table_tr_list[5].find_all("a")]
                 result.append({
                     "zdi_id": tds[0].text,
+                    "name": 'kernel',
                     "zdi_can": tds[1].text,
                     "vendor": tds[2].text,
-                    "cve": tds[3].text if (tds[3].text and tds[3].text != '\xa0') else None,
+                    "id": tds[3].text if (tds[3].text and tds[3].text != '\xa0') else tds[1].text,
                     "cvss": tds[4].text,
                     "date": tds[5].text,
                     "updated": tds[6].text,
-                    "desc": tds[7].text,
-                    "long_desc": long_desc,
-                    "zero_url": f"https://www.zerodayinitiative.com/advisories/{tds[0].text}/",
-                    "urls": links
+                    "short_desc": tds[7].text,
+                    "description": long_desc,
+                    "source": f"https://www.zerodayinitiative.com/advisories/{tds[0].text}/",
+                    "links": links
 
                 })
 
