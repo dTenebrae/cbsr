@@ -294,6 +294,46 @@ class CveChecker:
                     url_file.write(f"{link}\n")
         return result
 
+    def get_zero_cves(self) -> list:
+
+        url = "https://www.zerodayinitiative.com/advisories/published/"
+        resp = self.get_response(url,
+                                 bs=True,
+                                 parser='lxml',
+                                 headers=HEADERS,
+                                 )
+        result = []
+        for tr in resp.find_all("tr", attrs={"id": "publishedAdvisories"}):
+            tds = tr.find_all("td")
+            if tds[2].text.lower() == 'linux':
+                current_url = f"https://www.zerodayinitiative.com/advisories/{tds[0].text}/"
+                links, long_desc = None, None
+                resp = self.get_response(current_url,
+                                         bs=True,
+                                         parser='lxml',
+                                         headers=HEADERS,
+                                         )
+                table_tr_list = resp.find("table").find_all("tr")
+                if table_tr_list[3].find_all("td")[1].text.strip().lower() == 'kernel':
+                    long_desc = table_tr_list[4].find_all("td")[1].text.strip()
+                    links = [url.text.strip() for url in table_tr_list[5].find_all("a")]
+                result.append({
+                    "zdi_id": tds[0].text,
+                    "zdi_can": tds[1].text,
+                    "vendor": tds[2].text,
+                    "cve": tds[3].text if (tds[3].text and tds[3].text != '\xa0') else None,
+                    "cvss": tds[4].text,
+                    "date": tds[5].text,
+                    "updated": tds[6].text,
+                    "desc": tds[7].text,
+                    "long_desc": long_desc,
+                    "zero_url": f"https://www.zerodayinitiative.com/advisories/{tds[0].text}/",
+                    "urls": links
+
+                })
+
+        return result
+
     def find_all_issues(self, n=30):
         """
         Сканируем трекер, собираем большинство уязвимостей и печатаем n популярных
@@ -995,6 +1035,11 @@ def parse_args():
         action='store_true',
         help="Создать файл со списком юзеров редмайна"
     )
+    parser.add_argument(
+        '--zero',
+        action='store_true',
+        help=""
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1004,6 +1049,7 @@ def parse_args():
     parser.set_defaults(stat=False)
     parser.set_defaults(users=False)
     parser.set_defaults(moz=False)
+    parser.set_defaults(zero=False)
     return parser.parse_args()
 
 
@@ -1029,6 +1075,9 @@ if __name__ == '__main__':
         exit(0)
     if USERS:
         cve_checker.get_users_list()
+        exit(0)
+    if arguments.zero:
+        cve_checker.get_zero_cves()
         exit(0)
     print(80 * "=")
     print(f"Current time:             {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
