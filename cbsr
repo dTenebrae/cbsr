@@ -532,7 +532,15 @@ class CveChecker:
         vim_resp = self.get_response("https://github.com/vim/vim/tags", bs=False)
         vim_source_latest = re.findall(r"archive/refs/tags/[^/]+\.tar\.gz", vim_resp.text)[0]
         latest_vim_ver = re.findall(vim_ver_re, vim_source_latest)[0]
-        print(f"https://github.com/vim/vim/{vim_source_latest}")
+
+        vim_latest_src_url = f"https://github.com/vim/vim/{vim_source_latest}"
+
+        vim_srcrpm_urls = []
+
+        for tag in self.pkg_handler.tags:
+            vim_data = self.pkg_handler.get_latest_rpm_data("vim", tag)
+            vim_srcrpm_urls.append(f"'http://stapel.red-soft.ru/kojifiles/packages/{vim_data['name']}"
+                                   f"/{vim_data['version']}/{vim_data['release']}/src/{vim_data['nvr']}.src.rpm")
 
         if compare_versions(vuln_ver, latest_vim_ver):
             return
@@ -540,8 +548,6 @@ class CveChecker:
         # if parse_version(self.vim_73) > parse_version(vuln_ver):
         # TODO выведем сообщение что у нас версия vim не подверженая уязвимости
         # return
-
-        # print(self.get_rpm_path('vim', self.kojitag73))
 
     def get_issue(self, name, cve, desc, links, check_patch=True) -> dict:
         """
@@ -1039,6 +1045,11 @@ def parse_args():
         action='store_true',
         help=""
     )
+    parser.add_argument(
+        '--vim',
+        action='store_true',
+        help=""
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1049,6 +1060,7 @@ def parse_args():
     parser.set_defaults(users=False)
     parser.set_defaults(moz=False)
     parser.set_defaults(zero=False)
+    parser.set_defaults(vim=False)
     return parser.parse_args()
 
 
@@ -1077,6 +1089,10 @@ if __name__ == '__main__':
         exit(0)
     if arguments.zero:
         cve_checker.get_zero_cves()
+        exit(0)
+    if arguments.vim:
+        cve_checker.get_vim_data('Integer Overflow or Wraparound in GitHub '
+                                 'repository vim/vim prior to 9.0.1532.'.lower())
         exit(0)
     print(80 * "=")
     print(f"Current time:             {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
