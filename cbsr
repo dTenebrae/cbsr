@@ -39,6 +39,8 @@ KERNEL_PATH = f"{os.path.expanduser('.')}/src"
 TMP_PATCHES_PATH = f"{os.getcwd()}/output/tmp-patches"
 DEST_PATCH_PATH = f"{os.getcwd()}/output/patches"
 
+TMP_SRPM_PATH = f"{os.getcwd()}/output/srpms"
+
 # Явки/пароли для трекера
 credentials = dotenv_values(".env")
 REDMINE_URL = "https://tracker.red-soft.ru"
@@ -140,9 +142,10 @@ class CveChecker:
                 print(f"Downloading sources for linux kernel: {kern_path}")
                 self.download_kernel_src(kern_path)
 
-        if os.path.exists(TMP_PATCHES_PATH):
-            shutil.rmtree(TMP_PATCHES_PATH, ignore_errors=False, onerror=None)
-        os.makedirs(TMP_PATCHES_PATH)
+        for path in [TMP_PATCHES_PATH, TMP_SRPM_PATH]:
+            if os.path.exists(path):
+                shutil.rmtree(path, ignore_errors=False, onerror=None)
+            os.makedirs(path)
 
     def __init__(self, days_to_check, recon_num, auto):
 
@@ -518,6 +521,18 @@ class CveChecker:
             'files': [file.split('|')[0].strip() for file in files_raw[:-1]],
             'patch_text': patch_txt,
         }
+
+    def download_src_rpm(self, url, dest_path):
+        req = self.get_response(url, bs=False)
+        with open(dest_path, "wb") as f:
+            for chunk in req.iter_content(100000):
+                f.write(chunk)
+
+        # Распаковываем в папку и удаляем архив
+        # unpack_cmd = f"tar xf {kernel_src_filename} -C {KERNEL_PATH}"
+        # rm_cmd = f"rm -f {kernel_src_filename}"
+        # self.exec_bash(unpack_cmd)
+        # self.exec_bash(rm_cmd)
 
     def get_vim_data(self, desc):
         """
@@ -959,8 +974,9 @@ class CveChecker:
                                 watcher_ids=pkg_data['watchers'])
 
     def __del__(self):
-        if os.path.exists(TMP_PATCHES_PATH):
-            shutil.rmtree(TMP_PATCHES_PATH, ignore_errors=False, onerror=None)
+        for path in [TMP_SRPM_PATH, TMP_PATCHES_PATH]:
+            if os.path.exists(path):
+                shutil.rmtree(path, ignore_errors=False, onerror=None)
 
 
 def parse_args():
