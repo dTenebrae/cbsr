@@ -873,11 +873,16 @@ class CveChecker:
             issues += "---\n\n"
 
         if issues:
-            for tag, pkg_data in zip(self.pkg_handler.tags, self.pkg_handler.pkgs_data[pkg_name]['nvr_list']):
-                issues += f"Версия пакета для {tag['name']}: " \
-                          f"{self.pkg_handler.pkgs_data[pkg_name]['stapel_name']}-{pkg_data}\n"
+            issues += self.print_nvrs(pkg_name)
 
         return issues, patches_found, successful_patches_list
+
+    def print_nvrs(self, pkg_name: str) -> str:
+        result = ''
+        for tag, pkg_data in zip(self.pkg_handler.tags, self.pkg_handler.pkgs_data[pkg_name]['nvr_list']):
+            result += f"Версия пакета для {tag['name']}: " \
+                      f"{self.pkg_handler.pkgs_data[pkg_name]['stapel_name']}-{pkg_data}\n"
+        return result
 
     @staticmethod
     def send_to_telegram(message: str) -> dict:
@@ -1066,6 +1071,12 @@ def parse_args():
         action='store_true',
         help=""
     )
+    parser.add_argument(
+        '--nvr',
+        type=str,
+        help="Вывести в консоль данные по пакету"
+
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1109,6 +1120,9 @@ if __name__ == '__main__':
     if arguments.vim:
         cve_checker.get_vim_data('Integer Overflow or Wraparound in GitHub '
                                  'repository vim/vim prior to 9.0.1532.'.lower())
+        exit(0)
+    if arguments.nvr:
+        print(cve_checker.print_nvrs(arguments.nvr))
         exit(0)
     print(80 * "=")
     print(f"Current time:             {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
