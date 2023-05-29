@@ -115,6 +115,15 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['artem.chernyshev']),
                 'watchers': [int(self.users_dict['artem.chernyshev'])],
             },
+            'nextcloud': {
+                'check_func': self.is_nextcloud_generic_issue,
+                'cve_counter': 0,
+                'stapel_name': 'nextcloud',
+                'nvr_list': [self.get_latest_rpm_data("nextcloud", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'watchers': None,
+            },
             'nextcloud-server': {
                 'check_func': self.is_nextcloud_server_issue,
                 'cve_counter': 0,
@@ -516,6 +525,24 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
+    def is_nextcloud_generic_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к nextcloud. Пока для отлавливания всех nextcloud задач
+        """
+
+        if 'nextcloud' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and path_split[1] == 'nextcloud':
+                    return IsXIssue.MAYBE
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
     def is_nextcloud_server_issue(desc, links) -> IsXIssue:
         """
         Проверка на то, что уязвимость относится к nextcloud-server
@@ -528,7 +555,7 @@ class PkgHandler:
             netloc = parse.urlparse(link).netloc
             path_split = parse.urlparse(link).path.split('/')
             if len(path_split) > 2:
-                if netloc == 'github.com' and path_split[1] == 'nextcloud':
+                if netloc == 'github.com' and (path_split[1] == 'nextcloud' and path_split[2] == 'server'):
                     return IsXIssue.YES
 
         return IsXIssue.MAYBE
