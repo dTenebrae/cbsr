@@ -154,7 +154,7 @@ class PkgHandler:
                 'watchers': None,
             },
             'nextcloud-contacts': {
-                'check_func': self.is_nextcloud_calendar_issue,
+                'check_func': self.is_nextcloud_contacts_issue,
                 'cve_counter': 0,
                 'stapel_name': 'nextcloud-app-contacts',
                 'nvr_list': [self.get_latest_rpm_data("nextcloud-app-contacts", tag).get('version', "")
