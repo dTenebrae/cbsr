@@ -153,6 +153,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
+            'nextcloud-contacts': {
+                'check_func': self.is_nextcloud_calendar_issue,
+                'cve_counter': 0,
+                'stapel_name': 'nextcloud-app-contacts',
+                'nvr_list': [self.get_latest_rpm_data("nextcloud-app-contacts", tag).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'watchers': None,
+            },
             'gpac': {
                 'check_func': self.is_gpac_issue,
                 'cve_counter': 0,
@@ -598,7 +608,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к nextcloud-mail
         """
 
-        if 'nextcloud mail' not in desc:
+        if 'nextcloud' not in desc.split() and 'mail' not in desc.split():
             return IsXIssue.NO
 
         for link in links:
@@ -616,7 +626,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к nextcloud-mail
         """
 
-        if 'nextcloud calendar' not in desc:
+        if 'nextcloud' not in desc.split() and 'calendar' not in desc.split():
             return IsXIssue.NO
 
         for link in links:
@@ -624,6 +634,24 @@ class PkgHandler:
             path_split = parse.urlparse(link).path.split('/')
             if len(path_split) > 2:
                 if netloc == 'github.com' and (path_split[1] == 'nextcloud' and path_split[2] == 'calendar'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_nextcloud_contacts_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к nextcloud-contacts
+        """
+
+        if 'nextcloud' not in desc.split() and 'contacts' not in desc.split():
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and (path_split[1] == 'nextcloud' and path_split[2] == 'contacts'):
                     return IsXIssue.YES
 
         return IsXIssue.MAYBE
