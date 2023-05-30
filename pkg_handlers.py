@@ -476,6 +476,38 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'libssh': {
+                'check_func': self.is_libssh_issue,
+                'cve_counter': 0,
+                'stapel_name': 'libssh',
+                'nvr_list': [self.get_latest_rpm_data("libssh", tag).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
+            'c-ares': {
+                'check_func': self.is_c_ares_issue,
+                'cve_counter': 0,
+                'stapel_name': 'c-ares',
+                'nvr_list': [self.get_latest_rpm_data("c-ares", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
+                                       int(self.users_dict['vladislav.mitin']),
+                                       int(self.users_dict['ilia.polyvyanyy']),
+                                       int(self.users_dict['alexey.rodionov'])]),
+                'watchers': None,
+            },
+            'avahi': {
+                'check_func': self.is_avahi_issue,
+                'cve_counter': 0,
+                'stapel_name': 'avahi',
+                'nvr_list': [self.get_latest_rpm_data("avahi", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
+                                       int(self.users_dict['alexey.rodionov'])]),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1270,5 +1302,63 @@ class PkgHandler:
             if len(path_split) > 2:
                 if netloc == 'github.com' and path_split[1] == 'moby':
                     return IsXIssue.MAYBE
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_libssh_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к libssh
+        """
+
+        check_urls = [
+            'www.libssh.org',
+        ]
+
+        if 'libssh' not in desc.split():
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_c_ares_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к c-ares
+        """
+
+        if 'c-ares' not in desc.split():
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'c-ares' and path_split[2] == 'c-ares'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_avahi_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к avahi
+        """
+
+        if 'avahi' not in desc.split():
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'lathiat' and path_split[2] == 'avahi'):
+                    return IsXIssue.YES
 
         return IsXIssue.MAYBE
