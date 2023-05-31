@@ -963,7 +963,7 @@ class CveChecker:
         print(issue_url)
 
         if SEND_TO_TELEGRAM:
-            self.send_to_telegram(f"Manual check:"
+            self.send_to_telegram(f"{subject}\nManual check:"
                                   f" {', '.join(self.manual_check)}\nTracker URL: {issue_url}")
 
     def run(self):
