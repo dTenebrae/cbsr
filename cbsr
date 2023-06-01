@@ -942,6 +942,15 @@ class CveChecker:
                                             assigned_id=assigned_id,
                                             watcher_ids=watcher_ids,
                                             tag=pkg_name)
+            if successful_patches_list:
+                # чтобы итерироваться каждый раз по разным версия, вместо общего счетчика
+                for ver in set(map(lambda x: x[2], successful_patches_list)):
+                    for i, item in enumerate(list(filter(lambda x: x[2] == ver, successful_patches_list)),
+                                             start=1):
+                        dest_patch = f"{DEST_PATCH_PATH}/patches-{item[2]}/" \
+                                     f"000{i}_kernel-lt-{item[2]}_{item[1]}_{issue_id}.patch"
+                        shutil.copyfile(item[0], dest_patch)
+                        print(f"Patch created: {dest_patch}")
         else:
             subject = f'Множественные уязвимости в {pkg_name.capitalize()}' \
                 if (len(pkg_cves) > 1) else f'Уязвимость в {pkg_name.capitalize()}'
@@ -950,13 +959,6 @@ class CveChecker:
                                             assigned_id=assigned_id,
                                             watcher_ids=watcher_ids
                                             )
-
-        if is_kernel and check_patch and successful_patches_list:
-            for i, item in enumerate(successful_patches_list):
-                dest_patch = f"{DEST_PATCH_PATH}/patches-{item[2]}/" \
-                             f"000{i}_kernel-lt-{item[2]}_{item[1]}_{issue_id}.patch"
-                Path(item[0]).rename(dest_patch)
-                print(f"Patch created: {dest_patch}")
 
         print(f"Создана задача № {issue_id}")
         issue_url = f"{REDMINE_URL}/issues/{issue_id}"
