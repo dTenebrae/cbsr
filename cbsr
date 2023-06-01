@@ -124,6 +124,7 @@ class CveChecker:
         """
         Проверяем на существование требуемые папки
         """
+
         if not os.path.exists(KERNEL_PATH):
             os.makedirs(KERNEL_PATH)
 
@@ -139,7 +140,7 @@ class CveChecker:
         for kern_path in set(self.kernel_paths):
             if not os.path.exists(kern_path):
                 print(f"Downloading sources for linux kernel: {kern_path}")
-                self.download_kernel_src(kern_path)
+                self.download_kernel_src(re.findall(self.ver_re, kern_path)[0])
 
         for path in [TMP_PATCHES_PATH, TMP_SRPM_PATH]:
             if os.path.exists(path):
@@ -151,6 +152,7 @@ class CveChecker:
         self.redmine = self.__redmine_auth()
         # self.vulners = self.__vulners_auth()
 
+        self.ver_re = re.compile(r"\d\.\d+\.\d+")
         self.pkg_handler = PkgHandler()
         self.days_to_check = days_to_check
         self.recon_num = recon_num
@@ -903,13 +905,12 @@ class CveChecker:
         return json.loads(result) if result else {}
 
     def check_patches(self):
-        ver_re = re.compile(r"\d\.\d+\.\d+")
         for subdir, dirs, files in os.walk(DEST_PATCH_PATH):
             if not files:
                 continue
             for kern_path in self.kernel_paths:
                 print(80 * "=")
-                print(f"Для ядра {re.findall(ver_re, kern_path)[0]}")
+                print(f"Для ядра {re.findall(self.ver_re, kern_path)[0]}")
                 print(80 * "=")
                 for file in files:
                     patch_path = os.path.join(subdir, file)
