@@ -714,6 +714,8 @@ class CveChecker:
         print(f"CVE for {len(self.pkg_handler.pkgs_data)} packages")
         print('-' * 80)
         for pkg_name, pkg_data in self.pkg_handler.pkgs_data.items():
+            if not pkg_data['cve_counter']:
+                continue
             # классная арифметическая конструкция - для вычисления пробелов
             print(f"{pkg_name}:" + " " * (30 - (len(pkg_name) + 5)) + f"{pkg_data['cve_counter']}")
         print('-' * 80)
