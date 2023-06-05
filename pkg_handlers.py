@@ -537,6 +537,7 @@ class PkgHandler:
             'lists.debian.org',
             'www.debian.org',
             'www.spinics.net',
+            'patchwork.kernel.org',
         ]
 
         if ('linux kernel' not in desc) or ('android linux kernel' in desc):
