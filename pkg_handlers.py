@@ -518,6 +518,15 @@ class PkgHandler:
                                        int(self.users_dict['alexey.rodionov'])]),
                 'watchers': None,
             },
+            'opensc': {
+                'check_func': self.is_opensc_issue,
+                'cve_counter': 0,
+                'stapel_name': 'opensc',
+                'nvr_list': [self.get_latest_rpm_data("opensc", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vitaly.peshcherov']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1389,5 +1398,22 @@ class PkgHandler:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'lathiat' and path_split[2] == 'avahi'):
                     return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_opensc_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к opensc
+        """
+
+        if 'opensc' not in desc.split():
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'opensc':
+                return IsXIssue.YES
 
         return IsXIssue.MAYBE
