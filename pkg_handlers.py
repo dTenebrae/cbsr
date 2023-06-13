@@ -545,6 +545,16 @@ class PkgHandler:
                                        int(self.users_dict['dmitry.safonov'])]),
                 'watchers': None,
             },
+            'libexpat': {
+                'check_func': self.is_libexpat_issue,
+                'cve_counter': 0,
+                'stapel_name': 'expat',
+                'nvr_list': [self.get_latest_rpm_data("expat", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': choice([int(self.users_dict['ilia.polyvyanyy']),
+                                       int(self.users_dict['vladislav.mitin'])]),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1472,6 +1482,23 @@ class PkgHandler:
             netloc = parse.urlparse(link).netloc
             path_first = parse.urlparse(link).path.split('/')[1]
             if netloc == 'github.com' and path_first == 'grpc':
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_libexpat_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к libexpat
+        """
+
+        if 'libexpat' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'libexpat':
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
