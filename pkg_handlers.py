@@ -29,6 +29,9 @@ class IsXIssue(Enum):
 
 
 def compare_versions(ver_a: str, ver_b: str) -> bool:
+    """
+    Сравниватель версий по старшинству. Нормально обрабатывает буквенные версии
+    """
     def replace_chars_with_ord(ver_str: str) -> str:
         result_str = ""
         for char in ver_str:
@@ -530,6 +533,16 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("opensc", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vitaly.peshcherov']),
+                'watchers': None,
+            },
+            'grpc': {
+                'check_func': self.is_grpc_issue,
+                'cve_counter': 0,
+                'stapel_name': 'grpc',
+                'nvr_list': [self.get_latest_rpm_data("grpc", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
+                                       int(self.users_dict['alexey.rodionov'])]),
                 'watchers': None,
             },
         }
@@ -1424,6 +1437,23 @@ class PkgHandler:
             netloc = parse.urlparse(link).netloc
             path_first = parse.urlparse(link).path.split('/')[1]
             if netloc == 'github.com' and path_first == 'opensc':
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_grpc_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к grpc
+        """
+
+        if 'grpc' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'grpc':
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
