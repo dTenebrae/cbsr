@@ -114,7 +114,7 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['artem.chernyshev']),
                 'watchers': [int(self.users_dict['artem.chernyshev'])],
             },
-            'vim': {
+            'Vim': {
                 'check_func': self.is_vim_issue,
                 'cve_counter': 0,
                 'stapel_name': 'vim',
@@ -218,7 +218,7 @@ class PkgHandler:
                                        int(self.users_dict['ilia.polyvyanyy'])]),
                 'watchers': None,
             },
-            'firefox': {
+            'Firefox': {
                 'check_func': self.is_mozilla_issue,
                 'cve_counter': 0,
                 'stapel_name': 'firefox',
@@ -227,7 +227,7 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': [int(self.users_dict['oleg.shaposhnikov'])],
             },
-            'thunderbird': {
+            'Thunderbird': {
                 'check_func': self.is_mozilla_issue,
                 'cve_counter': 0,
                 'stapel_name': 'thunderbird',
@@ -236,7 +236,7 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': [int(self.users_dict['oleg.shaposhnikov'])],
             },
-            'curl': {
+            'cURL': {
                 'check_func': self.is_curl_issue,
                 'cve_counter': 0,
                 'stapel_name': 'curl',
@@ -272,7 +272,7 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
-            'imagemagick': {
+            'ImageMagick': {
                 'check_func': self.is_imagemagick_issue,
                 'cve_counter': 0,
                 'stapel_name': 'ImageMagick',
@@ -290,7 +290,7 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
-            'wireshark': {
+            'Wireshark': {
                 'check_func': self.is_wireshark_issue,
                 'cve_counter': 0,
                 'stapel_name': 'wireshark',
@@ -328,7 +328,7 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['dmitry.safonov']),
                 'watchers': None,
             },
-            'openssl': {
+            'openSSL': {
                 'check_func': self.is_openssl_issue,
                 'cve_counter': 0,
                 'stapel_name': 'openssl',
@@ -347,7 +347,7 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
-            'emacs': {
+            'Emacs': {
                 'check_func': self.is_emacs_issue,
                 'cve_counter': 0,
                 'stapel_name': 'emacs',
@@ -428,7 +428,7 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
-            'lua': {
+            'Lua': {
                 'check_func': self.is_lua_issue,
                 'cve_counter': 0,
                 'stapel_name': 'lua',
@@ -484,7 +484,7 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
-            'moby': {
+            'Moby': {
                 'check_func': self.is_moby_issue,
                 'cve_counter': 0,
                 'stapel_name': 'moby-engine',
@@ -516,7 +516,7 @@ class PkgHandler:
                                        int(self.users_dict['alexey.rodionov'])]),
                 'watchers': None,
             },
-            'avahi': {
+            'Avahi': {
                 'check_func': self.is_avahi_issue,
                 'cve_counter': 0,
                 'stapel_name': 'avahi',
@@ -526,7 +526,7 @@ class PkgHandler:
                                        int(self.users_dict['alexey.rodionov'])]),
                 'watchers': None,
             },
-            'opensc': {
+            'openSC': {
                 'check_func': self.is_opensc_issue,
                 'cve_counter': 0,
                 'stapel_name': 'opensc',
@@ -535,7 +535,7 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vitaly.peshcherov']),
                 'watchers': None,
             },
-            'grpc': {
+            'gRPC': {
                 'check_func': self.is_grpc_issue,
                 'cve_counter': 0,
                 'stapel_name': 'grpc',

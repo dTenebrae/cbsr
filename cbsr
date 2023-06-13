@@ -983,8 +983,8 @@ class CveChecker:
                         shutil.copyfile(item[0], dest_patch)
                         print(f"Patch created: {dest_patch}")
         else:
-            subject = f'Множественные уязвимости в {pkg_name.capitalize()}' \
-                if (len(pkg_cves) > 1) else f'Уязвимость в {pkg_name.capitalize()}'
+            subject = f'Множественные уязвимости в {pkg_name}' \
+                if (len(pkg_cves) > 1) else f'Уязвимость в {pkg_name}'
             issue_id = self.create_an_issue(subject=subject,
                                             desc=issues,
                                             assigned_id=assigned_id,
