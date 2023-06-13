@@ -717,6 +717,8 @@ class CveChecker:
             links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
             for pkg_name, pkg_data in self.pkg_handler.pkgs_data.items():
+                if cve['cve']['id'] in cve_id_list:
+                    continue
                 pkg_data['cve_counter'], exists_count = self.check_cve(pkg_name,
                                                                        pkg_data['check_func'],
                                                                        cve,
@@ -825,7 +827,7 @@ class CveChecker:
             fixed_version_id=146,  # 146 - Версия: РЕД ОС - РЕД ОС 7.3
             priority_id=1,  # 1 - нормальный приоритет
             assigned_to_id=assigned_id,
-            watcher_user_ids=watcher_ids,  # 490 - Чернышев Артем, 25 - Шапошников Олег
+            watcher_user_ids=watcher_ids,
             custom_fields=[{'id': 151, 'value': 'Все'},  # Конфигурация ОС: Все
                            {'id': 133, 'value': ['143', '144']},  # 143, 144 - Редакция: Сертифицированная, Стандартная
                            ],

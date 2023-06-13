@@ -219,7 +219,7 @@ class PkgHandler:
                 'watchers': None,
             },
             'Firefox': {
-                'check_func': self.is_mozilla_issue,
+                'check_func': self.is_firefox_issue,
                 'cve_counter': 0,
                 'stapel_name': 'firefox',
                 'nvr_list': [self.get_latest_rpm_data("firefox", tag).get('version', "") for tag in self.tags],
@@ -228,7 +228,7 @@ class PkgHandler:
                 'watchers': [int(self.users_dict['oleg.shaposhnikov'])],
             },
             'Thunderbird': {
-                'check_func': self.is_mozilla_issue,
+                'check_func': self.is_thunderbird_issue,
                 'cve_counter': 0,
                 'stapel_name': 'thunderbird',
                 'nvr_list': [self.get_latest_rpm_data("thunderbird", tag).get('version', "") for tag in self.tags],
@@ -780,16 +780,34 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_mozilla_issue(desc, links) -> IsXIssue:
+    def is_firefox_issue(desc, links) -> IsXIssue:
         """
-        Проверка на то, что уязвимость относится к mozilla
+        Проверка на то, что уязвимость относится к firefox
         """
         check_urls = [
             'bugzilla.mozilla.org',
             'www.mozilla.org',
         ]
-        split_desc = split_and_strip(desc)
-        if ('firefox' not in split_desc) and ('thunderbird' not in split_desc):
+        if 'firefox' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_thunderbird_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к thunderbird
+        """
+        check_urls = [
+            'bugzilla.mozilla.org',
+            'www.mozilla.org',
+        ]
+        if 'thunderbird' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
