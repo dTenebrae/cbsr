@@ -541,8 +541,8 @@ class PkgHandler:
                 'stapel_name': 'grpc',
                 'nvr_list': [self.get_latest_rpm_data("grpc", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
-                                       int(self.users_dict['alexey.rodionov'])]),
+                'assigned_to': choice([int(self.users_dict['ilia.polyvyanyy']),
+                                       int(self.users_dict['dmitry.safonov'])]),
                 'watchers': None,
             },
         }
