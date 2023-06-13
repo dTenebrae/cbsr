@@ -436,13 +436,22 @@ class CveChecker:
                 continue
             return True if human_resp in ['yes', 'y'] else False
 
-    def get_dates(self):
+    def get_dates(self, today=True):
         """
         возвращает кортеж строк с датами требуемого формата,
         для последующего использования в запросе api nist.gov
         """
-        to_date = f'{date.today().strftime("%Y-%m-%d")}T23:59:59.999-05:00'
-        from_date = f'{(date.today() - timedelta(days=self.days_to_check)).strftime("%Y-%m-%d")}T00:00:00.000-05:00'
+        to_date = f'{date.today().strftime("%Y-%m-%d")}' \
+                  f'T23:59:59.999-05:00'
+
+        if not today and START_DATE:
+            from_date = f'{datetime.strptime(START_DATE, "%d-%m-%Y")}T00:00:00.000-05:00'
+            to_date = f'{(datetime.strptime(START_DATE, "%d-%m-%Y") + timedelta(days=self.days_to_check)).strftime("%Y-%m-%d")}T00:00:00.000-05:00'
+            return from_date, to_date
+
+        from_date = f'{(date.today() - timedelta(days=self.days_to_check)).strftime("%Y-%m-%d")}' \
+                    f'T00:00:00.000-05:00'
+
         return from_date, to_date
 
     @staticmethod
@@ -1003,7 +1012,7 @@ class CveChecker:
         """
         Основной цикл
         """
-        all_cves = self.get_current_cves(*self.get_dates())
+        all_cves = self.get_current_cves(*self.get_dates(today=not bool(START_DATE)))
         for pkg_name, pkg_data in self.pkg_handler.pkgs_data.items():
             self.check_and_post(pkg_name,
                                 all_cves,
@@ -1026,7 +1035,13 @@ def parse_args():
         '--day',
         type=int,
         default=1,
-        help="Количество дней за которые смотрим уязвимости. Считаем от текущего"
+        help="Количество дней за которые смотрим уязвимости."
+    )
+    parser.add_argument(
+        '--start-date',
+        type=str,
+        default='',
+        help="С какой даты ищем cve. Формат dd-mm-YYYY"
     )
     parser.add_argument(
         '--cve',
@@ -1141,6 +1156,7 @@ if __name__ == '__main__':
     CVE = arguments.cve
     STAT = arguments.stat
     USERS = arguments.users
+    START_DATE = arguments.start_date
 
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON, AUTO)
     if CVE:
@@ -1169,7 +1185,10 @@ if __name__ == '__main__':
         cve_checker.check_patches()
         exit(0)
     print(80 * "=")
-    print(f"Current time:             {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
-    print(f"Checking CVE's for last:  {DAYS_TO_CHECK} day(s)")
+    if START_DATE:
+        print(f"Start date:               {START_DATE}")
+    else:
+        print(f"Current time:             {datetime.now().strftime('%H:%M:%S %d-%m-%Y')}")
+    print(f"Checking CVE's for:       {DAYS_TO_CHECK} day(s)")
     cve_checker.run()
     print(80 * "=")
