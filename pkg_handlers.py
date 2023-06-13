@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import koji
 from enum import Enum
@@ -51,6 +52,10 @@ def ver_max(ver_list: list) -> str:
         if compare_versions(ver, max_atm):
             max_atm = ver
     return max_atm
+
+
+def split_and_strip(string: str) -> list:
+    return re.sub(r'[^\w\s]', '', string).split()
 
 
 class PkgHandler:
@@ -565,7 +570,7 @@ class PkgHandler:
         """
         Проверка на то, что уязвимость относится к vim
         """
-        if 'vim' not in desc.split():
+        if 'vim' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -618,7 +623,8 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к nextcloud-mail
         """
 
-        if 'nextcloud' not in desc.split() and 'mail' not in desc.split():
+        split_desc = split_and_strip(desc)
+        if 'nextcloud' not in split_desc and 'mail' not in split_desc:
             return IsXIssue.NO
 
         for link in links:
@@ -636,7 +642,8 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к nextcloud-mail
         """
 
-        if 'nextcloud' not in desc.split() and 'calendar' not in desc.split():
+        split_desc = split_and_strip(desc)
+        if 'nextcloud' not in split_desc and 'calendar' not in split_desc:
             return IsXIssue.NO
 
         for link in links:
@@ -654,7 +661,8 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к nextcloud-contacts
         """
 
-        if 'nextcloud' not in desc.split() and 'contacts' not in desc.split():
+        split_desc = split_and_strip(desc)
+        if 'nextcloud' not in split_desc and 'contacts' not in split_desc:
             return IsXIssue.NO
 
         for link in links:
@@ -672,7 +680,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к gpac
         """
 
-        if 'gpac' not in desc.split():
+        if 'gpac' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -689,7 +697,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к redis
         """
 
-        if 'redis' not in desc.split():
+        if 'redis' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -706,7 +714,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к systemd
         """
 
-        if 'systemd' not in desc.split():
+        if 'systemd' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -726,7 +734,7 @@ class PkgHandler:
             'docs.djangoproject.com',
             'www.djangoproject.com',
         ]
-        if 'django' not in desc.split():
+        if 'django' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -745,7 +753,7 @@ class PkgHandler:
             'git.moodle.org',
             'moodle.org',
         ]
-        if 'moodle' not in desc.split():
+        if 'moodle' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -767,7 +775,8 @@ class PkgHandler:
             'bugzilla.mozilla.org',
             'www.mozilla.org',
         ]
-        if ('firefox' not in desc.split()) or ('thunderbird' not in desc.split()):
+        split_desc = split_and_strip(desc)
+        if ('firefox' not in split_desc) and ('thunderbird' not in split_desc):
             return IsXIssue.NO
 
         for link in links:
@@ -786,7 +795,8 @@ class PkgHandler:
             'security.netapp.com',
             'hackerone.com',
         ]
-        if ('curl' not in desc.split()) and ('libcurl' not in desc.split()):
+        split_desc = split_and_strip(desc)
+        if ('curl' not in split_desc) and ('libcurl' not in split_desc):
             return IsXIssue.NO
 
         for link in links:
@@ -807,7 +817,7 @@ class PkgHandler:
             'glpi-project',
         ]
 
-        if 'glpi' not in desc.split():
+        if 'glpi' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -828,7 +838,7 @@ class PkgHandler:
             'tiffcp.com',
         ]
 
-        if 'libtiff' not in desc.split():
+        if 'libtiff' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -851,7 +861,7 @@ class PkgHandler:
             'grafana.com',
         ]
 
-        if 'grafana' not in desc.split():
+        if 'grafana' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -874,7 +884,7 @@ class PkgHandler:
             'imagemagick.org',
         ]
 
-        if 'imagemagick' not in desc.split():
+        if 'imagemagick' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -897,7 +907,7 @@ class PkgHandler:
             'git.qemu.org',
         ]
 
-        if 'qemu' not in desc.split():
+        if 'qemu' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -922,7 +932,7 @@ class PkgHandler:
             'www.wireshark.org',
         ]
 
-        if 'wireshark' not in desc.split():
+        if 'wireshark' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -945,7 +955,7 @@ class PkgHandler:
             'libvirt.org',
         ]
 
-        if 'libvirt' not in desc.split():
+        if 'libvirt' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -968,7 +978,7 @@ class PkgHandler:
             'www.libraw.org',
         ]
 
-        if 'libraw' not in desc.split():
+        if 'libraw' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -992,7 +1002,7 @@ class PkgHandler:
             'bugzilla.samba.org',
         ]
 
-        if 'samba' not in desc.split():
+        if 'samba' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1013,7 +1023,7 @@ class PkgHandler:
             'www.openssl.org',
         ]
 
-        found_flag = 'openssl' in desc.split()
+        found_flag = 'openssl' in split_and_strip(desc)
 
         for link in links:
             netloc = parse.urlparse(link).netloc
@@ -1030,7 +1040,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к libraw
         """
 
-        if 'yasm' not in desc.split():
+        if 'yasm' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1047,7 +1057,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к emacs
         """
 
-        if 'emacs' not in desc.split():
+        if 'emacs' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1066,7 +1076,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к libreswan
         """
 
-        if 'libreswan' not in desc.split():
+        if 'libreswan' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1087,7 +1097,7 @@ class PkgHandler:
             'www.libreoffice.org',
         ]
 
-        if 'libreoffice' not in desc.split():
+        if 'libreoffice' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1107,7 +1117,7 @@ class PkgHandler:
             'www.sudo.ws',
         ]
 
-        if 'sudo' not in desc.split():
+        if 'sudo' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1126,7 +1136,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к podofo
         """
 
-        if 'podofo' not in desc.split():
+        if 'podofo' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1143,7 +1153,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к opensearch
         """
 
-        if 'opensearch' not in desc.split():
+        if 'opensearch' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1160,7 +1170,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к libheif
         """
 
-        if 'libheif' not in desc.split():
+        if 'libheif' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1178,7 +1188,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к flask
         """
 
-        if 'flask' not in desc.split():
+        if 'flask' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1219,7 +1229,7 @@ class PkgHandler:
             'www.lua.org',
         ]
 
-        if 'lua' not in desc.split():
+        if 'lua' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1238,7 +1248,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к nginx
         """
 
-        if 'nginx' not in desc.split():
+        if 'nginx' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1255,7 +1265,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к tcpdump
         """
 
-        if 'tcpdump' not in desc.split():
+        if 'tcpdump' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1274,7 +1284,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к tmux
         """
 
-        if 'tmux' not in desc.split():
+        if 'tmux' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1293,7 +1303,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к flatpak
         """
 
-        if 'flatpak' not in desc.split():
+        if 'flatpak' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1312,7 +1322,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к runc
         """
 
-        if 'runc' not in desc.split():
+        if 'runc' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1331,7 +1341,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к moby
         """
 
-        if 'moby' not in desc.split():
+        if 'moby' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1353,7 +1363,7 @@ class PkgHandler:
             'www.libssh.org',
         ]
 
-        if 'libssh' not in desc.split():
+        if 'libssh' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1369,7 +1379,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к c-ares
         """
 
-        if 'c-ares' not in desc.split():
+        if 'c-ares' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1388,7 +1398,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к avahi
         """
 
-        if 'avahi' not in desc.split():
+        if 'avahi' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:
@@ -1407,7 +1417,7 @@ class PkgHandler:
         Проверка на то, что уязвимость относится к opensc
         """
 
-        if 'opensc' not in desc.split():
+        if 'opensc' not in split_and_strip(desc):
             return IsXIssue.NO
 
         for link in links:

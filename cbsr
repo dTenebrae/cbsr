@@ -617,7 +617,22 @@ class CveChecker:
         desc = cve['cve']['descriptions'][0]['value'].lower()
         links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
+        for item in self.which_pkg(desc, links):
+            print(f"{item}")
+
         return self.get_issue('unknown', cve, desc, links, check_patch=check_patch)
+
+    # TODO Дублирование кода и смысла с функцией check_cve. Переписать
+    def which_pkg(self, desc, links) -> list:
+        result = []
+        for pkg_name, pkg_data in self.pkg_handler.pkgs_data.items():
+            is_pkg = pkg_data['check_func'](desc, links)
+            if is_pkg == IsXIssue.YES:
+                result.append({pkg_name: 'yes'})
+            elif is_pkg == IsXIssue.MAYBE:
+                result.append({pkg_name: 'maybe'})
+
+        return result
 
     def check_cve(self,
                   pkg_name,
@@ -633,7 +648,7 @@ class CveChecker:
         """
         Фильтруем уязвимости на нужные/ненужные
         :param pkg_name: Имя пакета, на который проверяем
-        :param check_func: Функция, которая проверяет на принадлекжность к пакету
+        :param check_func: Функция, которая проверяет на принадлежность к пакету
         :param cve: Словарь с данными по уязвимости
         :param desc: слегка обработанное описание уязвимости
         :param links: обработанные (в случае ядра) ссылки предоставленные nist'om
@@ -1130,6 +1145,8 @@ if __name__ == '__main__':
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON, AUTO)
     if CVE:
         one_cve = cve_checker.get_one_cve(CVE, check_patch=True)
+        print(f"Package exists on tracker: {cve_checker.is_cve_exists_rest_api(CVE)}")
+        print(80 * '-')
         print(cve_checker.get_issue_str(one_cve))
         exit(0)
     if STAT:
