@@ -104,8 +104,8 @@ class CveChecker:
         :param kern_ver: версия ядра
         :return:
         """
-        # TODO сделать под разные мажорные версии ядер
-        kern_src_url = f"https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-{kern_ver}.tar.xz"
+        kern_src_url = f"https://cdn.kernel.org/pub/linux/kernel/" \
+                       f"v{kern_ver.split('.')[0]}.x/linux-{kern_ver}.tar.xz"
         kernel_src_filename = f"{KERNEL_PATH}/linux-{kern_ver}.tar.xz"
 
         # Качаем архив
