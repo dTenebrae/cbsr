@@ -11,6 +11,7 @@ USERS_LIST = f"{os.path.expanduser('.')}/users.json"
 TAG_LIST = [
     "os72-updates",
     "os73-updates",
+    "os73-kernel6",
 ]
 KOJI_URL = "http://10.81.1.26/kojihub"
 
