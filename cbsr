@@ -933,17 +933,27 @@ class CveChecker:
         result = ps.communicate()[0].decode('utf-8')
         return json.loads(result) if result else {}
 
-    def check_patches(self):
+    def check_patches(self, version):
+        if version:
+            kern_paths = [f"{KERNEL_PATH}/linux-{version}"]
+        else:
+            kern_paths = self.kernel_paths
+
         for subdir, dirs, files in os.walk(DEST_PATCH_PATH):
             if not files:
                 continue
-            for kern_path in self.kernel_paths:
+
+            for path in kern_paths:
+                checked_list = []
                 print(80 * "=")
-                print(f"Для ядра {re.findall(self.ver_re, kern_path)[0]}")
+                print(f"Для ядра {re.findall(self.ver_re, path)[0]}")
                 print(80 * "=")
                 for file in files:
                     patch_path = os.path.join(subdir, file)
-                    print(f"{file:<56} -> {self.apply_patches(kern_path, patch_path):^20}")
+                    check_result = self.apply_patches(path, patch_path)
+                    checked_list.append((file, check_result))
+                for item in sorted(checked_list, key=lambda x: x[1].value):
+                    print(f"{item[0]:<56} -> {item[1]:^20}")
 
     def check_and_post(self,
                        pkg_name,
@@ -1130,7 +1140,8 @@ def parse_args():
     )
     parser.add_argument(
         '--check-patches',
-        action='store_true',
+        type=str,
+        default='',
         help="Проверка имеющихся патчей на актуальных версиях ядра"
     )
 
@@ -1144,7 +1155,6 @@ def parse_args():
     parser.set_defaults(moz=False)
     parser.set_defaults(zero=False)
     parser.set_defaults(vim=False)
-    parser.set_defaults(check_patches=False)
     return parser.parse_args()
 
 
@@ -1185,7 +1195,7 @@ if __name__ == '__main__':
         print(cve_checker.print_nvrs(arguments.nvr))
         exit(0)
     if arguments.check_patches:
-        cve_checker.check_patches()
+        cve_checker.check_patches(arguments.check_patches)
         exit(0)
     print(80 * "=")
     if START_DATE:
