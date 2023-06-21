@@ -59,7 +59,7 @@ def ver_max(ver_list: list) -> str:
 
 
 def split_and_strip(string: str) -> list:
-    return re.sub(r'[^\w\s]', '', string).split()
+    return re.sub(r'[^\w\s]', ' ', string).split()
 
 
 class PkgHandler:
