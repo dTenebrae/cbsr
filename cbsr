@@ -916,8 +916,10 @@ class CveChecker:
         return result
 
     def print_parsers(self):
+        print(f"Number of parsers:   {len(self.pkg_handler.pkgs_data)}")
+        print(50 * "-")
         for pkg_name, pkg_data in self.pkg_handler.pkgs_data.items():
-            print(f"{pkg_name:<20} -> {pkg_data['stapel_name']:>5}")
+            print(f"{pkg_name:<20} -> {pkg_data['stapel_name']:<5}")
 
     @staticmethod
     def send_to_telegram(message: str) -> dict:
