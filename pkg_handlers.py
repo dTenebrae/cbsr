@@ -556,6 +556,15 @@ class PkgHandler:
                                        int(self.users_dict['vladislav.mitin'])]),
                 'watchers': None,
             },
+            'libjxl': {
+                'check_func': self.is_libjxl_issue,
+                'cve_counter': 0,
+                'stapel_name': 'jpegxl',
+                'nvr_list': [self.get_latest_rpm_data("jpegxl", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
+            },
         }
 
     @staticmethod
@@ -1483,6 +1492,23 @@ class PkgHandler:
             netloc = parse.urlparse(link).netloc
             path_first = parse.urlparse(link).path.split('/')[1]
             if netloc == 'github.com' and path_first == 'grpc':
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_libjxl_issue(desc, links) -> IsXIssue:
+        """
+        Проверка на то, что уязвимость относится к libexpat
+        """
+
+        if 'libjxl' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'libjxl':
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
