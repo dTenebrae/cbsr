@@ -915,6 +915,10 @@ class CveChecker:
                       f"{self.pkg_handler.pkgs_data[pkg_name]['stapel_name']}-{pkg_data}\n"
         return result
 
+    def print_parsers(self):
+        for pkg_name, pkg_data in self.pkg_handler.pkgs_data.items():
+            print(f"{pkg_name:<20} -> {pkg_data['stapel_name']:>5}")
+
     @staticmethod
     def send_to_telegram(message: str) -> dict:
         """
@@ -1144,6 +1148,11 @@ def parse_args():
         default='',
         help="Проверка имеющихся патчей на актуальных версиях ядра"
     )
+    parser.add_argument(
+        '--current-parsers',
+        action='store_true',
+        help="Вывести текущие парсеры"
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1155,6 +1164,7 @@ def parse_args():
     parser.set_defaults(moz=False)
     parser.set_defaults(zero=False)
     parser.set_defaults(vim=False)
+    parser.set_defaults(current_parsers=False)
     return parser.parse_args()
 
 
@@ -1196,6 +1206,9 @@ if __name__ == '__main__':
         exit(0)
     if arguments.check_patches:
         cve_checker.check_patches(arguments.check_patches)
+        exit(0)
+    if arguments.current_parsers:
+        cve_checker.print_parsers()
         exit(0)
     print(80 * "=")
     if START_DATE:
