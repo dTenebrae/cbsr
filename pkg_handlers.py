@@ -565,8 +565,18 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
+            'openldap': {
+                'check_func': self.is_openldap_issue,
+                'cve_counter': 0,
+                'stapel_name': 'openldap',
+                'nvr_list': [self.get_latest_rpm_data("openldap", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
+    # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
     @staticmethod
     def is_kernel_issue(desc, links) -> IsXIssue:
         """
@@ -600,9 +610,6 @@ class PkgHandler:
 
     @staticmethod
     def is_vim_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к vim
-        """
         if 'vim' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -616,10 +623,6 @@ class PkgHandler:
 
     @staticmethod
     def is_nextcloud_generic_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к nextcloud. Пока для отлавливания всех nextcloud задач
-        """
-
         if 'nextcloud' not in desc:
             return IsXIssue.NO
 
@@ -634,10 +637,6 @@ class PkgHandler:
 
     @staticmethod
     def is_nextcloud_server_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к nextcloud-server
-        """
-
         if 'nextcloud server' not in desc:
             return IsXIssue.NO
 
@@ -652,10 +651,6 @@ class PkgHandler:
 
     @staticmethod
     def is_nextcloud_mail_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к nextcloud-mail
-        """
-
         split_desc = split_and_strip(desc)
         if 'nextcloud' not in split_desc and 'mail' not in split_desc:
             return IsXIssue.NO
@@ -671,10 +666,6 @@ class PkgHandler:
 
     @staticmethod
     def is_nextcloud_calendar_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к nextcloud-mail
-        """
-
         split_desc = split_and_strip(desc)
         if 'nextcloud' not in split_desc and 'calendar' not in split_desc:
             return IsXIssue.NO
@@ -690,10 +681,6 @@ class PkgHandler:
 
     @staticmethod
     def is_nextcloud_contacts_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к nextcloud-contacts
-        """
-
         split_desc = split_and_strip(desc)
         if 'nextcloud' not in split_desc and 'contacts' not in split_desc:
             return IsXIssue.NO
@@ -709,10 +696,6 @@ class PkgHandler:
 
     @staticmethod
     def is_gpac_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к gpac
-        """
-
         if 'gpac' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -726,10 +709,6 @@ class PkgHandler:
 
     @staticmethod
     def is_redis_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к redis
-        """
-
         if 'redis' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -743,9 +722,6 @@ class PkgHandler:
 
     @staticmethod
     def is_systemd_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к systemd
-        """
 
         if 'systemd' not in split_and_strip(desc):
             return IsXIssue.NO
@@ -760,9 +736,6 @@ class PkgHandler:
 
     @staticmethod
     def is_django_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к django
-        """
         check_urls = [
             'docs.djangoproject.com',
             'www.djangoproject.com',
@@ -779,9 +752,6 @@ class PkgHandler:
 
     @staticmethod
     def is_moodle_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к moodle
-        """
         check_urls = [
             'git.moodle.org',
             'moodle.org',
@@ -801,9 +771,6 @@ class PkgHandler:
 
     @staticmethod
     def is_firefox_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к firefox
-        """
         check_urls = [
             'bugzilla.mozilla.org',
             'www.mozilla.org',
@@ -820,9 +787,6 @@ class PkgHandler:
 
     @staticmethod
     def is_thunderbird_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к thunderbird
-        """
         check_urls = [
             'bugzilla.mozilla.org',
             'www.mozilla.org',
@@ -839,9 +803,6 @@ class PkgHandler:
 
     @staticmethod
     def is_curl_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к curl
-        """
         check_urls = [
             'security.netapp.com',
             'hackerone.com',
@@ -859,10 +820,6 @@ class PkgHandler:
 
     @staticmethod
     def is_glpi_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к glpi
-        """
-
         check_urls = [
             'pluginsGLPI',
             'glpi-project',
@@ -881,10 +838,6 @@ class PkgHandler:
 
     @staticmethod
     def is_libtiff_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к libtiff
-        """
-
         check_urls = [
             'tiffcp.com',
         ]
@@ -904,10 +857,6 @@ class PkgHandler:
 
     @staticmethod
     def is_grafana_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к grafana
-        """
-
         check_urls = [
             'grafana.com',
         ]
@@ -927,10 +876,6 @@ class PkgHandler:
 
     @staticmethod
     def is_imagemagick_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к imagemagick
-        """
-
         check_urls = [
             'imagemagick.org',
         ]
@@ -950,10 +895,6 @@ class PkgHandler:
 
     @staticmethod
     def is_qemu_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к qemu
-        """
-
         check_urls = [
             'git.qemu.org',
         ]
@@ -975,10 +916,6 @@ class PkgHandler:
 
     @staticmethod
     def is_wireshark_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к wireshark
-        """
-
         check_urls = [
             'www.wireshark.org',
         ]
@@ -998,10 +935,6 @@ class PkgHandler:
 
     @staticmethod
     def is_libvirt_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к libvirt
-        """
-
         check_urls = [
             'libvirt.org',
         ]
@@ -1021,10 +954,6 @@ class PkgHandler:
 
     @staticmethod
     def is_libraw_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к libraw
-        """
-
         check_urls = [
             'www.libraw.org',
         ]
@@ -1044,10 +973,6 @@ class PkgHandler:
 
     @staticmethod
     def is_samba_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к samba
-        """
-
         check_urls = [
             'www.samba.org',
             'bugzilla.samba.org',
@@ -1065,10 +990,6 @@ class PkgHandler:
 
     @staticmethod
     def is_openssl_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к libraw
-        """
-
         check_urls = [
             'git.openssl.org',
             'www.openssl.org',
@@ -1087,10 +1008,6 @@ class PkgHandler:
 
     @staticmethod
     def is_yasm_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к libraw
-        """
-
         if 'yasm' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1104,10 +1021,6 @@ class PkgHandler:
 
     @staticmethod
     def is_emacs_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к emacs
-        """
-
         if 'emacs' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1123,10 +1036,6 @@ class PkgHandler:
 
     @staticmethod
     def is_libreswan_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к libreswan
-        """
-
         if 'libreswan' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1140,10 +1049,6 @@ class PkgHandler:
 
     @staticmethod
     def is_libreoffice_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к libraw
-        """
-
         check_urls = [
             'www.libreoffice.org',
         ]
@@ -1160,10 +1065,6 @@ class PkgHandler:
 
     @staticmethod
     def is_sudo_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к sudo
-        """
-
         check_urls = [
             'www.sudo.ws',
         ]
@@ -1183,10 +1084,6 @@ class PkgHandler:
 
     @staticmethod
     def is_podofo_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к podofo
-        """
-
         if 'podofo' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1200,10 +1097,6 @@ class PkgHandler:
 
     @staticmethod
     def is_opensearch_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к opensearch
-        """
-
         if 'opensearch' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1217,10 +1110,6 @@ class PkgHandler:
 
     @staticmethod
     def is_libheif_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к libheif
-        """
-
         if 'libheif' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1235,10 +1124,6 @@ class PkgHandler:
 
     @staticmethod
     def is_flask_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к flask
-        """
-
         if 'flask' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1253,10 +1138,6 @@ class PkgHandler:
 
     @staticmethod
     def is_cups_filters_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к cups-filters
-        """
-
         if 'cups-filters' not in desc:
             return IsXIssue.NO
 
@@ -1272,10 +1153,6 @@ class PkgHandler:
 
     @staticmethod
     def is_lua_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к lua
-        """
-
         check_urls = [
             'www.lua.org',
         ]
@@ -1295,10 +1172,6 @@ class PkgHandler:
 
     @staticmethod
     def is_nginx_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к nginx
-        """
-
         if 'nginx' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1312,10 +1185,6 @@ class PkgHandler:
 
     @staticmethod
     def is_tcpdump_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к tcpdump
-        """
-
         if 'tcpdump' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1331,10 +1200,6 @@ class PkgHandler:
 
     @staticmethod
     def is_tmux_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к tmux
-        """
-
         if 'tmux' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1350,10 +1215,6 @@ class PkgHandler:
 
     @staticmethod
     def is_flatpak_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к flatpak
-        """
-
         if 'flatpak' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1369,10 +1230,6 @@ class PkgHandler:
 
     @staticmethod
     def is_runc_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к runc
-        """
-
         if 'runc' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1388,10 +1245,6 @@ class PkgHandler:
 
     @staticmethod
     def is_moby_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к moby
-        """
-
         if 'moby' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1406,10 +1259,6 @@ class PkgHandler:
 
     @staticmethod
     def is_libssh_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к libssh
-        """
-
         check_urls = [
             'www.libssh.org',
         ]
@@ -1426,10 +1275,6 @@ class PkgHandler:
 
     @staticmethod
     def is_c_ares_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к c-ares
-        """
-
         if 'c-ares' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1445,10 +1290,6 @@ class PkgHandler:
 
     @staticmethod
     def is_avahi_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к avahi
-        """
-
         if 'avahi' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1464,10 +1305,6 @@ class PkgHandler:
 
     @staticmethod
     def is_opensc_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к opensc
-        """
-
         if 'opensc' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1481,10 +1318,6 @@ class PkgHandler:
 
     @staticmethod
     def is_grpc_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к grpc
-        """
-
         if 'grpc' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1498,10 +1331,6 @@ class PkgHandler:
 
     @staticmethod
     def is_libjxl_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к libexpat
-        """
-
         if 'libjxl' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1515,10 +1344,6 @@ class PkgHandler:
 
     @staticmethod
     def is_libexpat_issue(desc, links) -> IsXIssue:
-        """
-        Проверка на то, что уязвимость относится к libexpat
-        """
-
         if 'libexpat' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1526,6 +1351,23 @@ class PkgHandler:
             netloc = parse.urlparse(link).netloc
             path_first = parse.urlparse(link).path.split('/')[1]
             if netloc == 'github.com' and path_first == 'libexpat':
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_openldap_issue(desc, links) -> IsXIssue:
+        check_urls = [
+            'git.openldap.org',
+            'bugs.openldap.org',
+        ]
+
+        if 'openldap' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
