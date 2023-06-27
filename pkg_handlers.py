@@ -574,6 +574,24 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'Netty': {
+                'check_func': self.is_netty_issue,
+                'cve_counter': 0,
+                'stapel_name': 'netty',
+                'nvr_list': [self.get_latest_rpm_data("netty", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'watchers': None,
+            },
+            'Nettle': {
+                'check_func': self.is_nettle_issue,
+                'cve_counter': 0,
+                'stapel_name': 'nettle',
+                'nvr_list': [self.get_latest_rpm_data("nettle", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -1368,6 +1386,32 @@ class PkgHandler:
         for link in links:
             netloc = parse.urlparse(link).netloc
             if netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_netty_issue(desc, links) -> IsXIssue:
+        if 'netty' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'netty':
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_nettle_issue(desc, links) -> IsXIssue:
+        if 'nettle' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'git.lysator.liu.se' and path_first == 'nettle':
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
