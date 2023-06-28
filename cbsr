@@ -523,13 +523,14 @@ class CveChecker:
         fixes_re = re.compile(r"Fixes:\s([a-z0-9]+)")
         subject_re = re.compile(r"Subject:\s(.+)")
         files_re = re.compile(r"(?<=\s-{3}\s)[\S\s]*?(?=\d+ file)")
+        chgd_re = re.compile(r"(?<=\s-{3}\s)[\S\s]*?(?=\d+ file)(\d+ file.+)")
         files_raw = re.findall(files_re, patch_txt)[0].strip().split('\n')
 
         return {
             'date': date_re.search(patch_txt).group(1) if date_re.search(patch_txt) else None,
             'fixes': fixes_re.search(patch_txt).group(1) if fixes_re.search(patch_txt) else None,
             'subject': subject_re.search(patch_txt).group(1) if subject_re.search(patch_txt) else None,
-            'files_changed': files_raw[-1],
+            'files_changed': chgd_re.search(patch_txt).group(1) if chgd_re.search(patch_txt) else None,
             'files': [file.split('|')[0].strip() for file in files_raw],
             'patch_text': patch_txt,
         }
