@@ -592,6 +592,15 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'pyPdf': {
+                'check_func': self.is_pypdf_issue,
+                'cve_counter': 0,
+                'stapel_name': 'pyPdf',
+                'nvr_list': [self.get_latest_rpm_data("pyPdf", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -1413,5 +1422,20 @@ class PkgHandler:
             path_first = parse.urlparse(link).path.split('/')[1]
             if netloc == 'git.lysator.liu.se' and path_first == 'nettle':
                 return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_pypdf_issue(desc, links) -> IsXIssue:
+        if 'pypdf' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'py-pdf' and path_split[2] == 'pypdf'):
+                    return IsXIssue.YES
 
         return IsXIssue.MAYBE
