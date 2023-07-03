@@ -598,7 +598,7 @@ class PkgHandler:
                 'stapel_name': 'pyPdf',
                 'nvr_list': [self.get_latest_rpm_data("pyPdf", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
         }
