@@ -253,7 +253,7 @@ class CveChecker:
             cve_header = list(map(str.strip, cve.find('a').text[1:].split(':', 1)))
             cve_dict['cves'].append({
                 'id': cve_header[0],
-                'name': cve_dict['products'].lower().split(',')[0],
+                'name': cve_dict['products'].lower().capitalize().split(',')[0].split()[0],
                 'vuln_products': cve_dict['products'],
                 'fixed_in': cve_dict['fixed_in'],
                 'description': f"*{cve_header[1]}*\n{cve.find('p').text}",
@@ -730,7 +730,7 @@ class CveChecker:
                                                                        pkg_data['cve_counter'],
                                                                        exists_count)
 
-        moz_cves = self.get_mozilla_cves(n=1)
+        moz_cves = self.get_mozilla_cves()
         for moz_advisories in moz_cves:
             for cve in moz_advisories['cves']:
                 if CHECK_REDMINE and not self.is_cve_exists_rest_api(cve['id']):
