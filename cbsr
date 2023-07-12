@@ -911,6 +911,8 @@ class CveChecker:
 
     def print_nvrs(self, pkg_name: str) -> str:
         result = ''
+        if pkg_name not in self.pkg_handler.pkgs_data.keys():
+            return result
         for tag, pkg_data in zip(self.pkg_handler.tags, self.pkg_handler.pkgs_data[pkg_name]['nvr_list']):
             result += f"Версия пакета для {tag['name']}: " \
                       f"{self.pkg_handler.pkgs_data[pkg_name]['stapel_name']}-{pkg_data}\n"
@@ -1187,10 +1189,14 @@ if __name__ == '__main__':
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON, AUTO)
     if CVE:
         one_cve = cve_checker.get_one_cve(CVE, check_patch=True)
-        print(f"Package exists on tracker: {cve_checker.is_cve_exists_rest_api(CVE)}")
-        print(80 * '-')
-        print(cve_checker.get_issue_str(one_cve))
-        exit(0)
+        if one_cve:
+            print(f"Package exists on tracker: {cve_checker.is_cve_exists_rest_api(CVE)}")
+            print(80 * '-')
+            print(cve_checker.get_issue_str(one_cve))
+            exit(0)
+        else:
+            print("CVE not found")
+            exit(0)
     if STAT:
         cve_checker.find_all_issues()
         exit(0)
@@ -1205,7 +1211,9 @@ if __name__ == '__main__':
                                  'repository vim/vim prior to 9.0.1532.'.lower())
         exit(0)
     if arguments.nvr:
-        print(cve_checker.print_nvrs(arguments.nvr))
+        nvr_data = cve_checker.print_nvrs(arguments.nvr)
+        if nvr_data:
+            print(nvr_data)
         exit(0)
     if arguments.check_patches:
         cve_checker.check_patches(arguments.check_patches)
