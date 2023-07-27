@@ -307,7 +307,6 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("libvirt", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
-                                       int(self.users_dict['vladislav.mitin']),
                                        int(self.users_dict['dmitry.safonov'])]),
                 'watchers': None,
             },
@@ -408,7 +407,7 @@ class PkgHandler:
                 'stapel_name': 'libheif',
                 'nvr_list': [self.get_latest_rpm_data("libheif", tag).get('version', "") for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
             'flask': {
