@@ -618,6 +618,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
+            'pygments': {
+                'check_func': self.is_pygments_issue,
+                'cve_counter': 0,
+                'stapel_name': 'python-pygments',
+                'nvr_list': [self.get_latest_rpm_data("python-pygments", tag).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -1486,5 +1496,21 @@ class PkgHandler:
             netloc = parse.urlparse(link).netloc
             if netloc in check_urls:
                 return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_pygments_issue(desc, links) -> IsXIssue:
+        if 'pygments' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and (path_split[1] == 'pygments' and path_split[2] == 'pygments'):
+                    return IsXIssue.YES
+                elif netloc == 'pypi.org' and (path_split[1] == 'project' and path_split[2] == 'Pygments'):
+                    return IsXIssue.YES
 
         return IsXIssue.MAYBE
