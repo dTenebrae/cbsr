@@ -751,10 +751,11 @@ class CveChecker:
         if cve_id_list and len(cve_id_list) > 1:
             for item in cve_id_list[1:]:
                 print(f"{26 * ' '}{item}")
-        print(f"Manual check:             {self.manual_check[0] if self.manual_check else ''}")
-        if self.manual_check and len(self.manual_check) > 1:
-            for item in self.manual_check[1:]:
-                print(f"{26 * ' '}{item}")
+        if self.manual_check:
+            print("Manual check:", end='')
+            for n, item in enumerate(self.manual_check):
+                space_num = 13 if n == 0 else 26
+                print(f"{space_num * ' '}https://nvd.nist.gov/vuln/detail/{item}")
         print(f"CVE existed on a tracker: {exists_count}")
         return cve_data_list
 
