@@ -609,6 +609,15 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'Ghostscript': {
+                'check_func': self.is_ghostscript_issue,
+                'cve_counter': 0,
+                'stapel_name': 'ghostscript',
+                'nvr_list': [self.get_latest_rpm_data("ghostscript", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -1460,5 +1469,22 @@ class PkgHandler:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'gradle' and path_split[2] == 'gradle'):
                     return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_ghostscript_issue(desc, links) -> IsXIssue:
+        check_urls = [
+            'git.ghostscript.com',
+            'bugs.ghostscript.com',
+        ]
+
+        if 'ghostscript' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
+                return IsXIssue.YES
 
         return IsXIssue.MAYBE
