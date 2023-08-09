@@ -655,6 +655,15 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vitaly.peshcherov']),
                 'watchers': None,
             },
+            'OpenDKIM': {
+                'check_func': self.is_opendkim_issue,
+                'cve_counter': 0,
+                'stapel_name': 'opendkim',
+                'nvr_list': [self.get_latest_rpm_data("opendkim", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['dmitry.safonov']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -1583,6 +1592,21 @@ class PkgHandler:
             if len(path_split) > 2:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'pmachapman' and path_split[2] == 'unrar'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_opendkim_issue(desc, links) -> IsXIssue:
+        if 'opendkim' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'trusteddomainproject' and path_split[2] == 'OpenDKIM'):
                     return IsXIssue.YES
 
         return IsXIssue.MAYBE
