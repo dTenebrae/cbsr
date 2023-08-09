@@ -628,6 +628,33 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'cargo': {
+                'check_func': self.is_cargo_issue,
+                'cve_counter': 0,
+                'stapel_name': 'rust',
+                'nvr_list': [self.get_latest_rpm_data("rust", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
+            'rust': {
+                'check_func': self.is_rust_issue,
+                'cve_counter': 0,
+                'stapel_name': 'rust',
+                'nvr_list': [self.get_latest_rpm_data("rust", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
+            'unRAR': {
+                'check_func': self.is_unrar_issue,
+                'cve_counter': 0,
+                'stapel_name': 'unrar',
+                'nvr_list': [self.get_latest_rpm_data("unrar", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vitaly.peshcherov']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -1511,6 +1538,51 @@ class PkgHandler:
                 if netloc == 'github.com' and (path_split[1] == 'pygments' and path_split[2] == 'pygments'):
                     return IsXIssue.YES
                 elif netloc == 'pypi.org' and (path_split[1] == 'project' and path_split[2] == 'Pygments'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_cargo_issue(desc, links) -> IsXIssue:
+        if 'cargo' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'rust-lang' and path_split[2] == 'cargo'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_rust_issue(desc, links) -> IsXIssue:
+        if 'rust' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'rust-lang' and path_split[2] == 'rust'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_unrar_issue(desc, links) -> IsXIssue:
+        if 'unrar' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'pmachapman' and path_split[2] == 'unrar'):
                     return IsXIssue.YES
 
         return IsXIssue.MAYBE
