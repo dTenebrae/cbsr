@@ -955,15 +955,16 @@ class CveChecker:
 
             for path in kern_paths:
                 checked_list = []
-                print(80 * "=")
-                print(f"Для ядра {re.findall(self.ver_re, path)[0]}")
-                print(80 * "=")
+                print()
+                print(100 * "=")
+                print(f"Патчи из {subdir.split('/')[-1]} для ядра {re.findall(self.ver_re, path)[0]}")
+                print(100 * "=")
                 for file in files:
                     patch_path = os.path.join(subdir, file)
                     check_result = self.apply_patches(path, patch_path)
                     checked_list.append((file, check_result))
                 for item in sorted(checked_list, key=lambda x: x[1].value):
-                    print(f"{item[0]:<56} -> {item[1]:^20}")
+                    print(f"{item[0]:<70} -> {item[1]:^20}")
 
     def check_and_post(self,
                        pkg_name,
