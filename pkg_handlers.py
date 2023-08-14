@@ -664,6 +664,25 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['dmitry.safonov']),
                 'watchers': None,
             },
+            'HAProxy': {
+                'check_func': self.is_haproxy_issue,
+                'cve_counter': 0,
+                'stapel_name': 'haproxy',
+                'nvr_list': [self.get_latest_rpm_data("haproxy", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
+            'GitPython': {
+                'check_func': self.is_gitpython_issue,
+                'cve_counter': 0,
+                'stapel_name': 'GitPython',
+                'nvr_list': [self.get_latest_rpm_data("GitPython", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': choice([int(self.users_dict['ilia.polyvyanyy']),
+                                       int(self.users_dict['vitaly.peshcherov'])]),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -1607,6 +1626,40 @@ class PkgHandler:
             if len(path_split) > 2:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'trusteddomainproject' and path_split[2] == 'OpenDKIM'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_haproxy_issue(desc, links) -> IsXIssue:
+        check_urls = [
+            'www.haproxy.org',
+        ]
+
+        if 'haproxy' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc == 'github.com' and path_first == 'haproxy':
+                return IsXIssue.YES
+            elif netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_gitpython_issue(desc, links) -> IsXIssue:
+        if 'gitpython' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'gitpython-developers' and path_split[2] == 'GitPython'):
                     return IsXIssue.YES
 
         return IsXIssue.MAYBE
