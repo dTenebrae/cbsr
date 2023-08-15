@@ -1006,6 +1006,7 @@ class PkgHandler:
     def is_qemu_issue(desc, links) -> IsXIssue:
         check_urls = [
             'git.qemu.org',
+            'www.qemu.org'
         ]
 
         if 'qemu' not in split_and_strip(desc):
@@ -1015,8 +1016,11 @@ class PkgHandler:
             netloc = parse.urlparse(link).netloc
             path_split = parse.urlparse(link).path.split('/')
             if len(path_split) > 3:
-                path_third = path_split[3]
-                if netloc == 'lists.nongnu.org' and path_third == 'qemu-devel':
+                if netloc == 'lists.nongnu.org' and path_split[3] == 'qemu-devel':
+                    return IsXIssue.YES
+                elif netloc == 'gitlab.com' and path_split[1] == 'qemu-project' and path_split[2] == 'qemu':
+                    return IsXIssue.YES
+                elif netloc == 'gitlab.com' and path_split[1] == 'birkelund' and path_split[2] == 'qemu':
                     return IsXIssue.YES
             if netloc in check_urls:
                 return IsXIssue.YES
