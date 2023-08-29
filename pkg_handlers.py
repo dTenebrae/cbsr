@@ -683,6 +683,61 @@ class PkgHandler:
                                        int(self.users_dict['vitaly.peshcherov'])]),
                 'watchers': None,
             },
+            'djvulibre': {
+                'check_func': self.is_djvulibre_issue,
+                'cve_counter': 0,
+                'stapel_name': 'djvulibre',
+                'nvr_list': [self.get_latest_rpm_data("djvulibre", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
+            },
+            'nasm': {
+                'check_func': self.is_nasm_issue,
+                'cve_counter': 0,
+                'stapel_name': 'nasm',
+                'nvr_list': [self.get_latest_rpm_data("nasm", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
+            'Poppler': {
+                'check_func': self.is_poppler_issue,
+                'cve_counter': 0,
+                'stapel_name': 'poppler',
+                'nvr_list': [self.get_latest_rpm_data("poppler", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
+            'p7zip': {
+                'check_func': self.is_p7zip_issue,
+                'cve_counter': 0,
+                'stapel_name': 'p7zip',
+                'nvr_list': [self.get_latest_rpm_data("p7zip", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
+            'Alertmanager': {
+                'check_func': self.is_alertmanager_issue,
+                'cve_counter': 0,
+                'stapel_name': 'golang-github-prometheus-alertmanager',
+                'nvr_list': [self.get_latest_rpm_data("golang-github-prometheus-alertmanager",
+                                                      tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['dmitry.safonov']),
+                'watchers': None,
+            },
+            'giflib': {
+                'check_func': self.is_giflib_issue,
+                'cve_counter': 0,
+                'stapel_name': 'giflib',
+                'nvr_list': [self.get_latest_rpm_data("giflib", tag).get('version', "") for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -1021,6 +1076,8 @@ class PkgHandler:
                 elif netloc == 'gitlab.com' and path_split[1] == 'qemu-project' and path_split[2] == 'qemu':
                     return IsXIssue.YES
                 elif netloc == 'gitlab.com' and path_split[1] == 'birkelund' and path_split[2] == 'qemu':
+                    return IsXIssue.YES
+                elif netloc == 'bugs.launchpad.net' and path_split[1] == 'qemu':
                     return IsXIssue.YES
             if netloc in check_urls:
                 return IsXIssue.YES
@@ -1665,5 +1722,97 @@ class PkgHandler:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'gitpython-developers' and path_split[2] == 'GitPython'):
                     return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_djvulibre_issue(desc, links) -> IsXIssue:
+        if 'djvulibre' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'djvu.sourceforge.net',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2 and (netloc == 'sourceforge.net' and path_split[2] == 'djvu'):
+                return IsXIssue.YES
+            elif netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_nasm_issue(desc, links) -> IsXIssue:
+        if 'nasm' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'nasm.us',
+            'bugzilla.nasm.us',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_poppler_issue(desc, links) -> IsXIssue:
+        if 'poppler' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'gitlab.freedesktop.org' and \
+                        (path_split[1] == 'poppler' and path_split[2] == 'poppler'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_p7zip_issue(desc, links) -> IsXIssue:
+        if 'p7zip' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2 and (netloc == 'sourceforge.net' and path_split[2] == 'p7zip'):
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_alertmanager_issue(desc, links) -> IsXIssue:
+        if 'alertmanager' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'prometheus' and path_split[2] == 'alertmanager'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_giflib_issue(desc, links) -> IsXIssue:
+        if 'giflib' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2 and (netloc == 'sourceforge.net' and path_split[2] == 'giflib'):
+                return IsXIssue.YES
 
         return IsXIssue.MAYBE
