@@ -926,8 +926,8 @@ class CveChecker:
         if pkg_name not in self.pkg_handler.pkgs_data.keys():
             return result
         for tag, pkg_data in zip(self.pkg_handler.tags, self.pkg_handler.pkgs_data[pkg_name]['nvr_list']):
-            result += f"Версия пакета для {tag['name']}: " \
-                      f"{self.pkg_handler.pkgs_data[pkg_name]['stapel_name']}-{pkg_data}\n"
+            result += f"Версия пакета для {tag[0]['name']:<20}" \
+                      f"{self.pkg_handler.pkgs_data[pkg_name]['stapel_name']:>5}-{pkg_data}\n"
         return result
 
     def print_parsers(self):

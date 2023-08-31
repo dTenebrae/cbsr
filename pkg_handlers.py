@@ -8,11 +8,15 @@ import urllib.parse as parse
 from itertools import zip_longest
 
 USERS_LIST = f"{os.path.expanduser('.')}/users.json"
-TAG_LIST = [
+TAG_LIST_ST7 = [
     "os73-updates",
     "os73-kernel6",
 ]
-KOJI_URL = "http://10.81.1.26/kojihub"
+TAG_LIST_ST8 = [
+    "redos80",
+]
+KOJI7_URL = "http://10.81.1.26/kojihub"
+KOJI8_URL = "http://10.81.1.59/kojihub"
 
 
 class PatchResult(Enum):
@@ -63,20 +67,22 @@ def split_and_strip(string: str) -> list:
 
 class PkgHandler:
 
-    def get_latest_rpm_data(self, package_name, tag_name, deep=True) -> dict:
+    @staticmethod
+    def get_latest_rpm_data(package_name, tag_name, session, deep=True) -> dict:
         """
         На входе получает имя пакета, на выходе отдает dict с информацией по нему
-        :param tag_name: Тег, в котором проверяем
         :param package_name: Имя пакета
+        :param tag_name: Тег, в котором проверяем
+        :param session: объект сессии koji
         :param deep: Флаг, какую логику использовать для поиска последнего пакета.
         В случае False будет брать последней по дате, что может быть не слишком удачным выбором
         :return: dict с инфой по пакету в случае успеха, пустой dict в противном случае
         """
         if deep:
-            package_list_raw = self.session.listTagged(tag_name['id'], package=package_name)
+            package_list_raw = session.listTagged(tag_name['id'], package=package_name)
             if not package_list_raw:
                 # на случай если не нашли в теге, ищем через наследование по простому
-                package_list = self.session.getLatestRPMS(tag_name['id'], arch='src', package=package_name)[1]
+                package_list = session.getLatestRPMS(tag_name['id'], arch='src', package=package_name)[1]
                 return package_list[0] if package_list else {}
 
             # выделим старшую эпоху
@@ -92,7 +98,7 @@ class PkgHandler:
             latest_release = ver_max([i['release'].split('.')[0] for i in latest_rpms])
             package_list = list(filter(lambda x: x['release'].split('.')[0] == latest_release, latest_rpms))
         else:
-            package_list = self.session.getLatestRPMS(tag_name['id'], arch='src', package=package_name)[1]
+            package_list = session.getLatestRPMS(tag_name['id'], arch='src', package=package_name)[1]
 
         return package_list[0] if package_list else {}
 
@@ -101,15 +107,19 @@ class PkgHandler:
         with open(USERS_LIST) as f:
             self.users_dict = json.loads(f.read())
 
-        self.session = koji.ClientSession(KOJI_URL)
-        self.tags = [self.session.getTag(tag) for tag in TAG_LIST]
+        self.session_st7 = koji.ClientSession(KOJI7_URL)
+        self.session_st8 = koji.ClientSession(KOJI8_URL)
+
+        self.tags = [(self.session_st7.getTag(tag), self.session_st7) for tag in TAG_LIST_ST7]
+        self.tags.extend([(self.session_st8.getTag(tag), self.session_st8) for tag in TAG_LIST_ST8])
 
         self.pkgs_data = {
             'kernel': {
                 'check_func': self.is_kernel_issue,
                 'cve_counter': 0,
                 'stapel_name': 'kernel-lt',
-                'nvr_list': [self.get_latest_rpm_data("kernel-lt", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("kernel-lt", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': True,
                 'assigned_to': int(self.users_dict['artem.chernyshev']),
                 'watchers': [int(self.users_dict['artem.chernyshev'])],
@@ -118,7 +128,8 @@ class PkgHandler:
                 'check_func': self.is_vim_issue,
                 'cve_counter': 0,
                 'stapel_name': 'vim',
-                'nvr_list': [self.get_latest_rpm_data("vim", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("vim", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['artem.chernyshev']),
                 'watchers': [int(self.users_dict['artem.chernyshev'])],
@@ -127,7 +138,8 @@ class PkgHandler:
                 'check_func': self.is_nextcloud_generic_issue,
                 'cve_counter': 0,
                 'stapel_name': 'nextcloud',
-                'nvr_list': [self.get_latest_rpm_data("nextcloud", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("nextcloud", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
@@ -136,7 +148,8 @@ class PkgHandler:
                 'check_func': self.is_nextcloud_server_issue,
                 'cve_counter': 0,
                 'stapel_name': 'nextcloud',
-                'nvr_list': [self.get_latest_rpm_data("nextcloud", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("nextcloud", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
@@ -145,7 +158,7 @@ class PkgHandler:
                 'check_func': self.is_nextcloud_mail_issue,
                 'cve_counter': 0,
                 'stapel_name': 'nextcloud-app-mail',
-                'nvr_list': [self.get_latest_rpm_data("nextcloud-app-mail", tag).get('version', "")
+                'nvr_list': [self.get_latest_rpm_data("nextcloud-app-mail", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
@@ -155,7 +168,7 @@ class PkgHandler:
                 'check_func': self.is_nextcloud_calendar_issue,
                 'cve_counter': 0,
                 'stapel_name': 'nextcloud-app-calendar',
-                'nvr_list': [self.get_latest_rpm_data("nextcloud-app-calendar", tag).get('version', "")
+                'nvr_list': [self.get_latest_rpm_data("nextcloud-app-calendar", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
@@ -165,7 +178,7 @@ class PkgHandler:
                 'check_func': self.is_nextcloud_contacts_issue,
                 'cve_counter': 0,
                 'stapel_name': 'nextcloud-app-contacts',
-                'nvr_list': [self.get_latest_rpm_data("nextcloud-app-contacts", tag).get('version', "")
+                'nvr_list': [self.get_latest_rpm_data("nextcloud-app-contacts", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
@@ -175,7 +188,8 @@ class PkgHandler:
                 'check_func': self.is_gpac_issue,
                 'cve_counter': 0,
                 'stapel_name': 'gpac',
-                'nvr_list': [self.get_latest_rpm_data("gpac", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("gpac", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -184,7 +198,8 @@ class PkgHandler:
                 'check_func': self.is_redis_issue,
                 'cve_counter': 0,
                 'stapel_name': 'redis',
-                'nvr_list': [self.get_latest_rpm_data("redis", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("redis", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
@@ -193,7 +208,8 @@ class PkgHandler:
                 'check_func': self.is_systemd_issue,
                 'cve_counter': 0,
                 'stapel_name': 'systemd',
-                'nvr_list': [self.get_latest_rpm_data("systemd", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("systemd", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -202,7 +218,8 @@ class PkgHandler:
                 'check_func': self.is_django_issue,
                 'cve_counter': 0,
                 'stapel_name': 'python-django',
-                'nvr_list': [self.get_latest_rpm_data("python-django", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("python-django", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
                                        int(self.users_dict['ilia.polyvyanyy'])]),
@@ -212,7 +229,8 @@ class PkgHandler:
                 'check_func': self.is_moodle_issue,
                 'cve_counter': 0,
                 'stapel_name': 'moodle',
-                'nvr_list': [self.get_latest_rpm_data("moodle", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("moodle", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vladislav.mitin']),
                                        int(self.users_dict['ilia.polyvyanyy'])]),
@@ -222,7 +240,8 @@ class PkgHandler:
                 'check_func': self.is_firefox_issue,
                 'cve_counter': 0,
                 'stapel_name': 'firefox',
-                'nvr_list': [self.get_latest_rpm_data("firefox", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("firefox", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': [int(self.users_dict['oleg.shaposhnikov'])],
@@ -231,7 +250,8 @@ class PkgHandler:
                 'check_func': self.is_thunderbird_issue,
                 'cve_counter': 0,
                 'stapel_name': 'thunderbird',
-                'nvr_list': [self.get_latest_rpm_data("thunderbird", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("thunderbird", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': [int(self.users_dict['oleg.shaposhnikov'])],
@@ -240,7 +260,8 @@ class PkgHandler:
                 'check_func': self.is_curl_issue,
                 'cve_counter': 0,
                 'stapel_name': 'curl',
-                'nvr_list': [self.get_latest_rpm_data("curl", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("curl", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
@@ -249,7 +270,8 @@ class PkgHandler:
                 'check_func': self.is_glpi_issue,
                 'cve_counter': 0,
                 'stapel_name': 'glpi',
-                'nvr_list': [self.get_latest_rpm_data("glpi", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("glpi", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['ilia.polyvyanyy']),
                 'watchers': None,
@@ -258,7 +280,8 @@ class PkgHandler:
                 'check_func': self.is_libtiff_issue,
                 'cve_counter': 0,
                 'stapel_name': 'libtiff',
-                'nvr_list': [self.get_latest_rpm_data("libtiff", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("libtiff", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -267,7 +290,8 @@ class PkgHandler:
                 'check_func': self.is_grafana_issue,
                 'cve_counter': 0,
                 'stapel_name': 'grafana',
-                'nvr_list': [self.get_latest_rpm_data("grafana", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("grafana", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -276,7 +300,8 @@ class PkgHandler:
                 'check_func': self.is_imagemagick_issue,
                 'cve_counter': 0,
                 'stapel_name': 'ImageMagick',
-                'nvr_list': [self.get_latest_rpm_data("ImageMagick", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("ImageMagick", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -285,7 +310,8 @@ class PkgHandler:
                 'check_func': self.is_qemu_issue,
                 'cve_counter': 0,
                 'stapel_name': 'qemu',
-                'nvr_list': [self.get_latest_rpm_data("qemu", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("qemu", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -294,7 +320,8 @@ class PkgHandler:
                 'check_func': self.is_wireshark_issue,
                 'cve_counter': 0,
                 'stapel_name': 'wireshark',
-                'nvr_list': [self.get_latest_rpm_data("wireshark", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("wireshark", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
@@ -303,7 +330,8 @@ class PkgHandler:
                 'check_func': self.is_libvirt_issue,
                 'cve_counter': 0,
                 'stapel_name': 'libvirt',
-                'nvr_list': [self.get_latest_rpm_data("libvirt", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("libvirt", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
                                        int(self.users_dict['dmitry.safonov'])]),
@@ -313,7 +341,8 @@ class PkgHandler:
                 'check_func': self.is_libraw_issue,
                 'cve_counter': 0,
                 'stapel_name': 'LibRaw',
-                'nvr_list': [self.get_latest_rpm_data("LibRaw", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("LibRaw", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -322,7 +351,8 @@ class PkgHandler:
                 'check_func': self.is_samba_issue,
                 'cve_counter': 0,
                 'stapel_name': 'samba',
-                'nvr_list': [self.get_latest_rpm_data("samba", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("samba", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['dmitry.safonov']),
                 'watchers': None,
@@ -331,7 +361,8 @@ class PkgHandler:
                 'check_func': self.is_openssl_issue,
                 'cve_counter': 0,
                 'stapel_name': 'openssl',
-                'nvr_list': [self.get_latest_rpm_data("openssl", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("openssl", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vladislav.mitin']),
                                        int(self.users_dict['ilia.polyvyanyy'])]),
@@ -341,7 +372,8 @@ class PkgHandler:
                 'check_func': self.is_yasm_issue,
                 'cve_counter': 0,
                 'stapel_name': 'yasm',
-                'nvr_list': [self.get_latest_rpm_data("yasm", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("yasm", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -350,7 +382,8 @@ class PkgHandler:
                 'check_func': self.is_emacs_issue,
                 'cve_counter': 0,
                 'stapel_name': 'emacs',
-                'nvr_list': [self.get_latest_rpm_data("emacs", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("emacs", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -359,7 +392,8 @@ class PkgHandler:
                 'check_func': self.is_libreswan_issue,
                 'cve_counter': 0,
                 'stapel_name': 'libreswan',
-                'nvr_list': [self.get_latest_rpm_data("libreswan", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("libreswan", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -368,7 +402,8 @@ class PkgHandler:
                 'check_func': self.is_libreoffice_issue,
                 'cve_counter': 0,
                 'stapel_name': 'libreoffice',
-                'nvr_list': [self.get_latest_rpm_data("libreoffice", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("libreoffice", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -377,7 +412,8 @@ class PkgHandler:
                 'check_func': self.is_sudo_issue,
                 'cve_counter': 0,
                 'stapel_name': 'sudo',
-                'nvr_list': [self.get_latest_rpm_data("sudo", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("sudo", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -386,7 +422,8 @@ class PkgHandler:
                 'check_func': self.is_podofo_issue,
                 'cve_counter': 0,
                 'stapel_name': 'podofo',
-                'nvr_list': [self.get_latest_rpm_data("podofo", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("podofo", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -395,7 +432,8 @@ class PkgHandler:
                 'check_func': self.is_opensearch_issue,
                 'cve_counter': 0,
                 'stapel_name': 'opensearch',
-                'nvr_list': [self.get_latest_rpm_data("opensearch", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("opensearch", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
@@ -404,7 +442,8 @@ class PkgHandler:
                 'check_func': self.is_libheif_issue,
                 'cve_counter': 0,
                 'stapel_name': 'libheif',
-                'nvr_list': [self.get_latest_rpm_data("libheif", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("libheif", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -413,7 +452,8 @@ class PkgHandler:
                 'check_func': self.is_flask_issue,
                 'cve_counter': 0,
                 'stapel_name': 'python-flask',
-                'nvr_list': [self.get_latest_rpm_data("python-flask", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("python-flask", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
@@ -422,7 +462,8 @@ class PkgHandler:
                 'check_func': self.is_cups_filters_issue,
                 'cve_counter': 0,
                 'stapel_name': 'cups-filters',
-                'nvr_list': [self.get_latest_rpm_data("cups-filters", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("cups-filters", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
@@ -431,7 +472,8 @@ class PkgHandler:
                 'check_func': self.is_lua_issue,
                 'cve_counter': 0,
                 'stapel_name': 'lua',
-                'nvr_list': [self.get_latest_rpm_data("lua", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("lua", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -440,7 +482,8 @@ class PkgHandler:
                 'check_func': self.is_nginx_issue,
                 'cve_counter': 0,
                 'stapel_name': 'nginx',
-                'nvr_list': [self.get_latest_rpm_data("nginx", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("nginx", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
                                        int(self.users_dict['vladislav.mitin'])]),
@@ -450,7 +493,8 @@ class PkgHandler:
                 'check_func': self.is_tcpdump_issue,
                 'cve_counter': 0,
                 'stapel_name': 'tcpdump',
-                'nvr_list': [self.get_latest_rpm_data("tcpdump", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("tcpdump", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
                                        int(self.users_dict['alexey.rodionov'])]),
@@ -460,7 +504,8 @@ class PkgHandler:
                 'check_func': self.is_tmux_issue,
                 'cve_counter': 0,
                 'stapel_name': 'tmux',
-                'nvr_list': [self.get_latest_rpm_data("tmux", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("tmux", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['artem.chernyshev']),
                 'watchers': None,
@@ -469,7 +514,8 @@ class PkgHandler:
                 'check_func': self.is_flatpak_issue,
                 'cve_counter': 0,
                 'stapel_name': 'flatpak',
-                'nvr_list': [self.get_latest_rpm_data("flatpak", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("flatpak", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['ilia.polyvyanyy']),
                 'watchers': None,
@@ -478,7 +524,8 @@ class PkgHandler:
                 'check_func': self.is_runc_issue,
                 'cve_counter': 0,
                 'stapel_name': 'runc',
-                'nvr_list': [self.get_latest_rpm_data("runc", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("runc", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -487,7 +534,7 @@ class PkgHandler:
                 'check_func': self.is_moby_issue,
                 'cve_counter': 0,
                 'stapel_name': 'moby-engine',
-                'nvr_list': [self.get_latest_rpm_data("moby-engine", tag).get('version', "")
+                'nvr_list': [self.get_latest_rpm_data("moby-engine", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
@@ -497,7 +544,7 @@ class PkgHandler:
                 'check_func': self.is_libssh_issue,
                 'cve_counter': 0,
                 'stapel_name': 'libssh',
-                'nvr_list': [self.get_latest_rpm_data("libssh", tag).get('version', "")
+                'nvr_list': [self.get_latest_rpm_data("libssh", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
@@ -507,7 +554,8 @@ class PkgHandler:
                 'check_func': self.is_c_ares_issue,
                 'cve_counter': 0,
                 'stapel_name': 'c-ares',
-                'nvr_list': [self.get_latest_rpm_data("c-ares", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("c-ares", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
                                        int(self.users_dict['vladislav.mitin']),
@@ -519,7 +567,8 @@ class PkgHandler:
                 'check_func': self.is_avahi_issue,
                 'cve_counter': 0,
                 'stapel_name': 'avahi',
-                'nvr_list': [self.get_latest_rpm_data("avahi", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("avahi", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
                                        int(self.users_dict['alexey.rodionov'])]),
@@ -529,7 +578,8 @@ class PkgHandler:
                 'check_func': self.is_opensc_issue,
                 'cve_counter': 0,
                 'stapel_name': 'opensc',
-                'nvr_list': [self.get_latest_rpm_data("opensc", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("opensc", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vitaly.peshcherov']),
                 'watchers': None,
@@ -538,7 +588,8 @@ class PkgHandler:
                 'check_func': self.is_grpc_issue,
                 'cve_counter': 0,
                 'stapel_name': 'grpc',
-                'nvr_list': [self.get_latest_rpm_data("grpc", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("grpc", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['ilia.polyvyanyy']),
                                        int(self.users_dict['dmitry.safonov'])]),
@@ -548,7 +599,8 @@ class PkgHandler:
                 'check_func': self.is_libexpat_issue,
                 'cve_counter': 0,
                 'stapel_name': 'expat',
-                'nvr_list': [self.get_latest_rpm_data("expat", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("expat", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['ilia.polyvyanyy']),
                                        int(self.users_dict['vladislav.mitin'])]),
@@ -558,7 +610,8 @@ class PkgHandler:
                 'check_func': self.is_libjxl_issue,
                 'cve_counter': 0,
                 'stapel_name': 'jpegxl',
-                'nvr_list': [self.get_latest_rpm_data("jpegxl", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("jpegxl", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -567,7 +620,8 @@ class PkgHandler:
                 'check_func': self.is_openldap_issue,
                 'cve_counter': 0,
                 'stapel_name': 'openldap',
-                'nvr_list': [self.get_latest_rpm_data("openldap", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("openldap", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -576,7 +630,8 @@ class PkgHandler:
                 'check_func': self.is_netty_issue,
                 'cve_counter': 0,
                 'stapel_name': 'netty',
-                'nvr_list': [self.get_latest_rpm_data("netty", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("netty", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
@@ -585,7 +640,8 @@ class PkgHandler:
                 'check_func': self.is_nettle_issue,
                 'cve_counter': 0,
                 'stapel_name': 'nettle',
-                'nvr_list': [self.get_latest_rpm_data("nettle", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("nettle", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -594,7 +650,8 @@ class PkgHandler:
                 'check_func': self.is_pypdf_issue,
                 'cve_counter': 0,
                 'stapel_name': 'pyPdf',
-                'nvr_list': [self.get_latest_rpm_data("pyPdf", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("pyPdf", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -603,7 +660,8 @@ class PkgHandler:
                 'check_func': self.is_gradle_issue,
                 'cve_counter': 0,
                 'stapel_name': 'gradle',
-                'nvr_list': [self.get_latest_rpm_data("gradle", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("gradle", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -612,7 +670,8 @@ class PkgHandler:
                 'check_func': self.is_ghostscript_issue,
                 'cve_counter': 0,
                 'stapel_name': 'ghostscript',
-                'nvr_list': [self.get_latest_rpm_data("ghostscript", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("ghostscript", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -621,7 +680,7 @@ class PkgHandler:
                 'check_func': self.is_pygments_issue,
                 'cve_counter': 0,
                 'stapel_name': 'python-pygments',
-                'nvr_list': [self.get_latest_rpm_data("python-pygments", tag).get('version', "")
+                'nvr_list': [self.get_latest_rpm_data("python-pygments", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
@@ -631,7 +690,8 @@ class PkgHandler:
                 'check_func': self.is_cargo_issue,
                 'cve_counter': 0,
                 'stapel_name': 'rust',
-                'nvr_list': [self.get_latest_rpm_data("rust", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("rust", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -640,7 +700,8 @@ class PkgHandler:
                 'check_func': self.is_rust_issue,
                 'cve_counter': 0,
                 'stapel_name': 'rust',
-                'nvr_list': [self.get_latest_rpm_data("rust", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("rust", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -649,7 +710,8 @@ class PkgHandler:
                 'check_func': self.is_unrar_issue,
                 'cve_counter': 0,
                 'stapel_name': 'unrar',
-                'nvr_list': [self.get_latest_rpm_data("unrar", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("unrar", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vitaly.peshcherov']),
                 'watchers': None,
@@ -658,7 +720,8 @@ class PkgHandler:
                 'check_func': self.is_opendkim_issue,
                 'cve_counter': 0,
                 'stapel_name': 'opendkim',
-                'nvr_list': [self.get_latest_rpm_data("opendkim", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("opendkim", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['dmitry.safonov']),
                 'watchers': None,
@@ -667,7 +730,8 @@ class PkgHandler:
                 'check_func': self.is_haproxy_issue,
                 'cve_counter': 0,
                 'stapel_name': 'haproxy',
-                'nvr_list': [self.get_latest_rpm_data("haproxy", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("haproxy", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -676,7 +740,8 @@ class PkgHandler:
                 'check_func': self.is_gitpython_issue,
                 'cve_counter': 0,
                 'stapel_name': 'GitPython',
-                'nvr_list': [self.get_latest_rpm_data("GitPython", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("GitPython", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['ilia.polyvyanyy']),
                                        int(self.users_dict['vitaly.peshcherov'])]),
@@ -686,7 +751,8 @@ class PkgHandler:
                 'check_func': self.is_djvulibre_issue,
                 'cve_counter': 0,
                 'stapel_name': 'djvulibre',
-                'nvr_list': [self.get_latest_rpm_data("djvulibre", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("djvulibre", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
@@ -695,7 +761,8 @@ class PkgHandler:
                 'check_func': self.is_nasm_issue,
                 'cve_counter': 0,
                 'stapel_name': 'nasm',
-                'nvr_list': [self.get_latest_rpm_data("nasm", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("nasm", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -704,7 +771,8 @@ class PkgHandler:
                 'check_func': self.is_poppler_issue,
                 'cve_counter': 0,
                 'stapel_name': 'poppler',
-                'nvr_list': [self.get_latest_rpm_data("poppler", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("poppler", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -713,7 +781,8 @@ class PkgHandler:
                 'check_func': self.is_p7zip_issue,
                 'cve_counter': 0,
                 'stapel_name': 'p7zip',
-                'nvr_list': [self.get_latest_rpm_data("p7zip", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("p7zip", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
@@ -723,7 +792,8 @@ class PkgHandler:
                 'cve_counter': 0,
                 'stapel_name': 'golang-github-prometheus-alertmanager',
                 'nvr_list': [self.get_latest_rpm_data("golang-github-prometheus-alertmanager",
-                                                      tag).get('version', "") for tag in self.tags],
+                                                      tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['dmitry.safonov']),
                 'watchers': None,
@@ -732,7 +802,8 @@ class PkgHandler:
                 'check_func': self.is_giflib_issue,
                 'cve_counter': 0,
                 'stapel_name': 'giflib',
-                'nvr_list': [self.get_latest_rpm_data("giflib", tag).get('version', "") for tag in self.tags],
+                'nvr_list': [self.get_latest_rpm_data("giflib", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
