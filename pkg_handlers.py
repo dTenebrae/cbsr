@@ -9,7 +9,6 @@ from itertools import zip_longest
 
 USERS_LIST = f"{os.path.expanduser('.')}/users.json"
 TAG_LIST = [
-    "os72-updates",
     "os73-updates",
     "os73-kernel6",
 ]
@@ -71,7 +70,7 @@ class PkgHandler:
         :param package_name: Имя пакета
         :param deep: Флаг, какую логику использовать для поиска последнего пакета.
         В случае False будет брать последней по дате, что может быть не слишком удачным выбором
-        :return: dict с инфой по пакету в случае успеха, None в противном случае
+        :return: dict с инфой по пакету в случае успеха, пустой dict в противном случае
         """
         if deep:
             package_list_raw = self.session.listTagged(tag_name['id'], package=package_name)

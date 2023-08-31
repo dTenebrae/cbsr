@@ -57,6 +57,58 @@ HEADERS = {
 
 # ######################################################################
 
+def get_response(*args, bs=True, parser='lxml', **kwargs):
+    """
+    Получим ответ по url
+    * bs - вернуть как soup или обычные response
+    * parser - какой парсер страницы используем (html, xml, lxml)
+    * NUMBER_OF_RECON - глобальная опция. Сколько стучимся, если поймали ошибку соединения
+    """
+    recon_count = 0
+    while recon_count <= NUMBER_OF_RECON:
+        try:
+            response: requests.Response = requests.get(*args, **kwargs)
+            # проверим код ответа
+            if response.status_code != requests.codes.ok:
+                raise ConnectionError
+            sleep(0.1)
+            if bs:
+                return BeautifulSoup(response.text, parser)
+            else:
+                return response
+        except ConnectionError:
+            # Стучимся пока не соединимся.
+            sleep(0.250)
+            recon_count += 1
+    print(f'Ошибка соединения')
+
+
+def get_users_list():
+    """
+    создает файл со списком юзеров трекера с их номерами
+    :return:
+    """
+    result = {}
+    url = f"{REDMINE_URL}/users?per_page=500"
+    resp = get_response(url,
+                        bs=True,
+                        parser='xml',
+                        headers=HEADERS,
+                        auth=(credentials['REDMINE_USER'], credentials['REDMINE_PASSWORD'])
+                        )
+    for user in resp.findAll('tr', {'class': lambda x: x and 'user active' in x}):
+        user_mail = user.find('td', {'class': 'mail'})
+        user_lnk = user.find('a')
+        if user_mail and user_lnk:
+            user_name = re.findall(r"^(.+)@", user_mail.text)
+            user_id = re.findall(r"\d+", user_lnk.get('href'))
+            if user_name and user_id:
+                result[user_name[0]] = int(user_id[0])
+
+    with open(USERS_LIST, 'w') as f:
+        json.dump(result, f)
+    print(f"Данные пользователей записаны в {USERS_LIST}")
+
 
 class CveChecker:
 
@@ -109,7 +161,7 @@ class CveChecker:
         kernel_src_filename = f"{KERNEL_PATH}/linux-{kern_ver}.tar.xz"
 
         # Качаем архив
-        req = self.get_response(kern_src_url, bs=False)
+        req = get_response(kern_src_url, bs=False)
         with open(kernel_src_filename, "wb") as f:
             for chunk in req.iter_content(100000):
                 f.write(chunk)
@@ -129,7 +181,7 @@ class CveChecker:
             os.makedirs(KERNEL_PATH)
 
         if not os.path.exists(USERS_LIST):
-            self.get_users_list()
+            get_users_list()
 
         for kernel_data in self.pkg_handler.pkgs_data['kernel']['nvr_list']:
             self.kernel_paths.append(f"{KERNEL_PATH}/linux-{kernel_data}")
@@ -163,32 +215,7 @@ class CveChecker:
         self.__prepare_dirs_and_paths()
 
     @staticmethod
-    def get_response(*args, bs=True, parser='lxml', **kwargs):
-        """
-        Получим ответ по url
-        * bs - вернуть как soup или обычные response
-        * parser - какой парсер страницы используем (html, xml, lxml)
-        * NUMBER_OF_RECON - глобальная опция. Сколько стучимся, если поймали ошибку соединения
-        """
-        recon_count = 0
-        while recon_count <= NUMBER_OF_RECON:
-            try:
-                response: requests.Response = requests.get(*args, **kwargs)
-                # проверим код ответа
-                if response.status_code != requests.codes.ok:
-                    raise ConnectionError
-                sleep(0.1)
-                if bs:
-                    return BeautifulSoup(response.text, parser)
-                else:
-                    return response
-            except ConnectionError:
-                # Стучимся пока не соединимся.
-                sleep(0.250)
-                recon_count += 1
-        print(f'Ошибка соединения')
-
-    def is_cve_exists_rest_api(self, cve: str) -> bool:
+    def is_cve_exists_rest_api(cve: str) -> bool:
         """
         Костыльная проверка на существование CVE в трекере.
         Используется, пока не разберусь с оберткой redminelib
@@ -200,12 +227,12 @@ class CveChecker:
         # посчитается как существующая
         exact_search_re = re.compile(fr"\b{cve}\b", re.I)
 
-        resp = self.get_response(url,
-                                 bs=True,
-                                 parser='xml',
-                                 headers=HEADERS,
-                                 auth=(credentials['REDMINE_USER'], credentials['REDMINE_PASSWORD'])
-                                 )
+        resp = get_response(url,
+                            bs=True,
+                            parser='xml',
+                            headers=HEADERS,
+                            auth=(credentials['REDMINE_USER'], credentials['REDMINE_PASSWORD'])
+                            )
         # Найдем, сколько раз CVE встречается в поиске
         f_count = resp.find("results").get("total_count")
         try:
@@ -216,34 +243,14 @@ class CveChecker:
             print("Ошибка поиска")
             return False
 
-    def get_users_list(self):
-        """
-        создает файл со списком юзеров трекера с их номерами
-        :return:
-        """
-        result = {}
-        url = f"{REDMINE_URL}/users?per_page=500"
-        resp = self.get_response(url,
-                                 bs=True,
-                                 parser='xml',
-                                 headers=HEADERS,
-                                 auth=(credentials['REDMINE_USER'], credentials['REDMINE_PASSWORD'])
-                                 )
-        for user in resp.find_all('td', attrs={'class': 'login'}):
-            user_lnk = user.find('a')
-            if user_lnk.text:
-                result[user_lnk.text] = int(re.findall(r"\d+", user_lnk.get('href'))[0])
-        with open(USERS_LIST, 'w') as f:
-            json.dump(result, f)
-        print(f"Данные пользователей записаны в {USERS_LIST}")
-
-    def create_mozcve(self, url) -> dict:
+    @staticmethod
+    def create_mozcve(url) -> dict:
         cve_dict = {}
-        resp = self.get_response(url,
-                                 bs=True,
-                                 parser='lxml',
-                                 headers=HEADERS,
-                                 )
+        resp = get_response(url,
+                            bs=True,
+                            parser='lxml',
+                            headers=HEADERS,
+                            )
         # Парсим summary в словарь
         main_sum = resp.find('dl', attrs={'class', 'summary'})
         for name, item in zip(main_sum.find_all('dt'), main_sum.find_all('dd')):
@@ -271,11 +278,11 @@ class CveChecker:
         В противном случае придется обрабатывать более 1300 старых ссылок
         """
         url = "https://www.mozilla.org/en-US/security/advisories/"
-        resp = self.get_response(url,
-                                 bs=True,
-                                 parser='lxml',
-                                 headers=HEADERS,
-                                 )
+        resp = get_response(url,
+                            bs=True,
+                            parser='lxml',
+                            headers=HEADERS,
+                            )
         visited_urls = []
         if os.path.exists('./visited_urls.log'):
             # Загружаем список уже посещенных урлов
@@ -298,24 +305,25 @@ class CveChecker:
                     url_file.write(f"{link}\n")
         return result
 
-    def get_zero_cves(self) -> list:
+    @staticmethod
+    def get_zero_cves() -> list:
 
         url = "https://www.zerodayinitiative.com/advisories/published/"
-        resp = self.get_response(url,
-                                 bs=True,
-                                 parser='lxml',
-                                 headers=HEADERS,
-                                 )
+        resp = get_response(url,
+                            bs=True,
+                            parser='lxml',
+                            headers=HEADERS,
+                            )
         result = []
         for tr in resp.find_all("tr", attrs={"id": "publishedAdvisories"}):
             tds = tr.find_all("td")
             if tds[2].text.lower() == 'linux':
                 current_url = f"https://www.zerodayinitiative.com/advisories/{tds[0].text}/"
-                resp = self.get_response(current_url,
-                                         bs=True,
-                                         parser='lxml',
-                                         headers=HEADERS,
-                                         )
+                resp = get_response(current_url,
+                                    bs=True,
+                                    parser='lxml',
+                                    headers=HEADERS,
+                                    )
                 table_tr_list = resp.find("table").find_all("tr")
                 if table_tr_list[3].find_all("td")[1].text.strip().lower() == 'kernel':
                     long_desc = table_tr_list[4].find_all("td")[1].text.strip()
@@ -337,7 +345,8 @@ class CveChecker:
 
         return result
 
-    def find_all_issues(self, n=30):
+    @staticmethod
+    def find_all_issues(n=30):
         """
         Сканируем трекер, собираем большинство уязвимостей и печатаем n популярных
         """
@@ -405,13 +414,13 @@ class CveChecker:
         while True:
             url = f"{REDMINE_URL}/projects/cve/search.xml?&issues=1&" \
                   f"limit={limit}&offset={cnt}&titles_only=1&q=уязвимост"
-            resp = self.get_response(url,
-                                     bs=True,
-                                     parser='xml',
-                                     headers=HEADERS,
-                                     auth=(credentials['REDMINE_USER'],
-                                           credentials['REDMINE_PASSWORD'])
-                                     )
+            resp = get_response(url,
+                                bs=True,
+                                parser='xml',
+                                headers=HEADERS,
+                                auth=(credentials['REDMINE_USER'],
+                                      credentials['REDMINE_PASSWORD'])
+                                )
             titles = resp.find_all("title")
             t_count = len(titles)
             result.extend(list(map(title_strip, titles)))
@@ -501,7 +510,8 @@ class CveChecker:
                    f"/src/{package['nvr']}.src.rpm"
         return src_path
 
-    def get_kern_patches(self, url: str) -> dict:
+    @staticmethod
+    def get_kern_patches(url: str) -> dict:
         """
         Парсим патч по ссылке, в случае, если ссылка формата
         https://github.com/torvalds/linux/commit/**commit**
@@ -513,7 +523,7 @@ class CveChecker:
 
         # Получим response
         new_url = f'{url}.patch'
-        patch_resp = self.get_response(new_url, bs=True, headers=HEADERS)
+        patch_resp = get_response(new_url, bs=True, headers=HEADERS)
         # sanity check
         if not patch_resp:
             return {}
@@ -535,8 +545,9 @@ class CveChecker:
             'patch_text': patch_txt,
         }
 
-    def download_src_rpm(self, url, dest_path):
-        req = self.get_response(url, bs=False)
+    @staticmethod
+    def download_src_rpm(url, dest_path):
+        req = get_response(url, bs=False)
         with open(dest_path, "wb") as f:
             for chunk in req.iter_content(100000):
                 f.write(chunk)
@@ -557,7 +568,7 @@ class CveChecker:
 
         vim_ver_re = re.compile(r"\d\.\d\.\d+")
         vuln_ver = re.findall(vim_ver_re, desc)[0]
-        vim_resp = self.get_response("https://github.com/vim/vim/tags", bs=False)
+        vim_resp = get_response("https://github.com/vim/vim/tags", bs=False)
         vim_source_latest = re.findall(r"archive/refs/tags/[^/]+\.tar\.gz", vim_resp.text)[0]
         latest_vim_ver = re.findall(vim_ver_re, vim_source_latest)[0]
 
@@ -619,7 +630,7 @@ class CveChecker:
             NIST_CVE: cve_id,
         }
         url = self.prepare_url(NIST_API_URL, params)
-        nist_resp = self.get_response(url, bs=False, headers=HEADERS)
+        nist_resp = get_response(url, bs=False, headers=HEADERS)
         nist_json = nist_resp.json() if nist_resp else None
         if not nist_json or not nist_json.get('vulnerabilities', ""):
             return {}
@@ -703,7 +714,7 @@ class CveChecker:
             NIST_END: date_to
         }
         url = self.prepare_url(NIST_API_URL, params)
-        nist_resp = self.get_response(url, bs=False, headers=HEADERS)
+        nist_resp = get_response(url, bs=False, headers=HEADERS)
 
         nist_json = nist_resp.json() if nist_resp else None
         if not nist_json or not nist_json.get('vulnerabilities', ""):
@@ -1191,6 +1202,10 @@ if __name__ == '__main__':
     USERS = arguments.users
     START_DATE = arguments.start_date
 
+    if USERS:
+        get_users_list()
+        exit(0)
+
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON, AUTO)
     if CVE:
         one_cve = cve_checker.get_one_cve(CVE, check_patch=True)
@@ -1204,9 +1219,6 @@ if __name__ == '__main__':
             exit(0)
     if STAT:
         cve_checker.find_all_issues()
-        exit(0)
-    if USERS:
-        cve_checker.get_users_list()
         exit(0)
     if arguments.zero:
         cve_checker.get_zero_cves()
