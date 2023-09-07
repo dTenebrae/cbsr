@@ -533,11 +533,11 @@ class PkgHandler:
             'Moby': {
                 'check_func': self.is_moby_issue,
                 'cve_counter': 0,
-                'stapel_name': 'moby-engine',
-                'nvr_list': [self.get_latest_rpm_data("moby-engine", tag[0], tag[1]).get('version', "")
+                'stapel_name': 'docker-ce',
+                'nvr_list': [self.get_latest_rpm_data("docker-ce", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['vadim.karyaev']),
                 'watchers': None,
             },
             'libssh': {
@@ -1492,7 +1492,8 @@ class PkgHandler:
             netloc = parse.urlparse(link).netloc
             path_split = parse.urlparse(link).path.split('/')
             if len(path_split) > 2:
-                if netloc == 'github.com' and path_split[1] == 'moby':
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'moby' and path_split[2] == 'moby'):
                     return IsXIssue.MAYBE
 
         return IsXIssue.MAYBE

@@ -495,20 +495,20 @@ class CveChecker:
         result = list(set(result))
         return result
 
-    def get_rpm_path(self, rpm_name, tag_name):
-        """
-        Возвращает путь до физического расположения пакета на стапеле
-        :param tag_name: тег, в котором ищем пакет
-        :param rpm_name: Имя пакета
-        :return: Путь до файла в случае успеха, None в противном случае
-        """
-        package = self.pkg_handler.get_latest_rpm_data(rpm_name, tag_name)
-        if not package:
-            return
-
-        src_path = f"{REPO_PATH}/{package['name']}/{package['version']}/{package['release']}" \
-                   f"/src/{package['nvr']}.src.rpm"
-        return src_path
+    # def get_rpm_path(self, rpm_name, tag_name):
+    #     """
+    #     Возвращает путь до физического расположения пакета на стапеле
+    #     :param tag_name: тег, в котором ищем пакет
+    #     :param rpm_name: Имя пакета
+    #     :return: Путь до файла в случае успеха, None в противном случае
+    #     """
+    #     package = self.pkg_handler.get_latest_rpm_data(rpm_name, tag_name)
+    #     if not package:
+    #         return
+    #
+    #     src_path = f"{REPO_PATH}/{package['name']}/{package['version']}/{package['release']}" \
+    #                f"/src/{package['nvr']}.src.rpm"
+    #     return src_path
 
     @staticmethod
     def get_kern_patches(url: str) -> dict:
