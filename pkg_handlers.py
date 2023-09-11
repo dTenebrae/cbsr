@@ -808,6 +808,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
+            'Salt': {
+                'check_func': self.is_salt_issue,
+                'cve_counter': 0,
+                'stapel_name': 'salt',
+                'nvr_list': [self.get_latest_rpm_data("salt", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -1884,6 +1894,22 @@ class PkgHandler:
             netloc = parse.urlparse(link).netloc
             path_split = parse.urlparse(link).path.split('/')
             if len(path_split) > 2 and (netloc == 'sourceforge.net' and path_split[2] == 'giflib'):
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_salt_issue(desc, links) -> IsXIssue:
+        if 'salt' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'saltproject.io',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
                 return IsXIssue.YES
 
         return IsXIssue.MAYBE
