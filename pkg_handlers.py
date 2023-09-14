@@ -818,6 +818,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'Ruby': {
+                'check_func': self.is_ruby_issue,
+                'cve_counter': 0,
+                'stapel_name': 'ruby',
+                'nvr_list': [self.get_latest_rpm_data("ruby", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -1905,6 +1915,22 @@ class PkgHandler:
 
         check_urls = [
             'saltproject.io',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_ruby_issue(desc, links) -> IsXIssue:
+        if 'ruby' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'ruby-lang.org',
         ]
 
         for link in links:
