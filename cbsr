@@ -94,7 +94,8 @@ def get_users_list():
                         bs=True,
                         parser='xml',
                         headers=HEADERS,
-                        auth=(credentials['REDMINE_USER'], credentials['REDMINE_PASSWORD'])
+                        auth=(credentials['REDMINE_USER'], credentials['REDMINE_PASSWORD']),
+                        verify=False
                         )
     for user in resp.findAll('tr', {'class': lambda x: x and 'user active' in x}):
         user_mail = user.find('td', {'class': 'mail'})
@@ -119,7 +120,8 @@ class CveChecker:
         """
         redmine = Redmine(REDMINE_URL,
                           username=credentials['REDMINE_USER'],
-                          password=credentials['REDMINE_PASSWORD'])
+                          password=credentials['REDMINE_PASSWORD'],
+                          requests={'verify': False})
         try:
             redmine.auth()
             return redmine
@@ -231,7 +233,8 @@ class CveChecker:
                             bs=True,
                             parser='xml',
                             headers=HEADERS,
-                            auth=(credentials['REDMINE_USER'], credentials['REDMINE_PASSWORD'])
+                            auth=(credentials['REDMINE_USER'], credentials['REDMINE_PASSWORD']),
+                            verify=False
                             )
         # Найдем, сколько раз CVE встречается в поиске
         f_count = resp.find("results").get("total_count")
@@ -419,7 +422,8 @@ class CveChecker:
                                 parser='xml',
                                 headers=HEADERS,
                                 auth=(credentials['REDMINE_USER'],
-                                      credentials['REDMINE_PASSWORD'])
+                                      credentials['REDMINE_PASSWORD']),
+                                verify=False
                                 )
             titles = resp.find_all("title")
             t_count = len(titles)
