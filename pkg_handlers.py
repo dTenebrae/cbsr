@@ -39,6 +39,9 @@ def compare_versions(ver_a: str, ver_b: str) -> bool:
     def replace_chars_with_ord(ver_str: str) -> str:
         result_str = ""
         for char in ver_str:
+            if char == '~':
+                result_str += '.'
+                continue
             result_str += str(ord(char)) if char.isalpha() else char
         return result_str
 
@@ -468,7 +471,7 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
-            'cups': {
+            'CUPS': {
                 'check_func': self.is_cups_issue,
                 'cve_counter': 0,
                 'stapel_name': 'cups',
@@ -2069,10 +2072,17 @@ class PkgHandler:
     def is_roundcube_issue(desc, links) -> IsXIssue:
         if 'roundcube' not in split_and_strip(desc):
             return IsXIssue.NO
+        check_urls = [
+            'roundcube.net',
+        ]
 
         for link in links:
             netloc = parse.urlparse(link).netloc
             path_split = parse.urlparse(link).path.split('/')
+
+            if netloc in check_urls:
+                return IsXIssue.YES
+
             if len(path_split) > 2:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'roundcube' and path_split[2] == 'roundcubemail'):
