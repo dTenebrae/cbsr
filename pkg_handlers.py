@@ -468,6 +468,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
+            'cups': {
+                'check_func': self.is_cups_issue,
+                'cve_counter': 0,
+                'stapel_name': 'cups',
+                'nvr_list': [self.get_latest_rpm_data("cups", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
+            },
             'Lua': {
                 'check_func': self.is_lua_issue,
                 'cve_counter': 0,
@@ -823,6 +833,56 @@ class PkgHandler:
                 'cve_counter': 0,
                 'stapel_name': 'ruby',
                 'nvr_list': [self.get_latest_rpm_data("ruby", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
+            'Jenkins': {
+                'check_func': self.is_jenkins_issue,
+                'cve_counter': 0,
+                'stapel_name': 'jenkins',
+                'nvr_list': [self.get_latest_rpm_data("jenkins", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'watchers': None,
+            },
+            'ReportLab': {
+                'check_func': self.is_reportlab_issue,
+                'cve_counter': 0,
+                'stapel_name': 'python-reportlab',
+                'nvr_list': [self.get_latest_rpm_data("python-reportlab", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
+            'Webmin': {
+                'check_func': self.is_webmin_issue,
+                'cve_counter': 0,
+                'stapel_name': 'webmin',
+                'nvr_list': [self.get_latest_rpm_data("webmin", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['ilia.polyvyanyy']),
+                'watchers': None,
+            },
+            'Roundcube': {
+                'check_func': self.is_roundcube_issue,
+                'cve_counter': 0,
+                'stapel_name': 'roundcubemail',
+                'nvr_list': [self.get_latest_rpm_data("roundcubemail", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
+            },
+            'GNOME-Shell': {
+                'check_func': self.is_gnome_shell_issue,
+                'cve_counter': 0,
+                'stapel_name': 'gnome-shell',
+                'nvr_list': [self.get_latest_rpm_data("gnome-shell", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
@@ -1412,6 +1472,21 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
+    def is_cups_issue(desc, links) -> IsXIssue:
+        if 'cups' not in desc:
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'OpenPrinting' and path_split[2] == 'cups'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
     def is_lua_issue(desc, links) -> IsXIssue:
         check_urls = [
             'www.lua.org',
@@ -1937,5 +2012,85 @@ class PkgHandler:
             netloc = parse.urlparse(link).netloc
             if netloc in check_urls:
                 return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_jenkins_issue(desc, links) -> IsXIssue:
+        if 'jenkins' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'jenkins.io',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_reportlab_issue(desc, links) -> IsXIssue:
+        if 'reportlab' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'MrBitBucket' and path_split[2] == 'reportlab-mirror'):
+                    return IsXIssue.YES
+                if netloc == 'hg.reportlab.com' and \
+                        (path_split[1] == 'hg-public' and path_split[2] == 'reportlab'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_webmin_issue(desc, links) -> IsXIssue:
+        if 'webmin' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'webmin.com',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_roundcube_issue(desc, links) -> IsXIssue:
+        if 'roundcube' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'roundcube' and path_split[2] == 'roundcubemail'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_gnome_shell_issue(desc, links) -> IsXIssue:
+        if ('gnome' not in split_and_strip(desc)) and ('shell' not in split_and_strip(desc)):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'gitlab.gnome.org' and \
+                        (path_split[1] == 'GNOME' and path_split[2] == 'gnome-shell'):
+                    return IsXIssue.YES
 
         return IsXIssue.MAYBE
