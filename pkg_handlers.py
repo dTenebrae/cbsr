@@ -891,6 +891,26 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'libwebp': {
+                'check_func': self.is_libwebp_issue,
+                'cve_counter': 0,
+                'stapel_name': 'libwebp',
+                'nvr_list': [self.get_latest_rpm_data("libwebp", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
+            },
+            'snappy-java': {
+                'check_func': self.is_snappy_java_issue,
+                'cve_counter': 0,
+                'stapel_name': 'snappy-java',
+                'nvr_list': [self.get_latest_rpm_data("snappy-java", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -2104,3 +2124,34 @@ class PkgHandler:
                     return IsXIssue.YES
 
         return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_libwebp_issue(desc, links) -> IsXIssue:
+        if 'libwebp' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'chromium.googlesource.com' and \
+                        (path_split[1] == 'webm' and path_split[2] == 'libwebp'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_snappy_java_issue(desc, links) -> IsXIssue:
+        if ('snappy' not in split_and_strip(desc)) and ('java' not in split_and_strip(desc)):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'xerial' and path_split[2] == 'snappy-java'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
