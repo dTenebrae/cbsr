@@ -911,6 +911,36 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'composer': {
+                'check_func': self.is_composer_issue,
+                'cve_counter': 0,
+                'stapel_name': 'composer',
+                'nvr_list': [self.get_latest_rpm_data("composer", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vitaly.peshcherov']),
+                'watchers': None,
+            },
+            'OptiPNG': {
+                'check_func': self.is_optipng_issue,
+                'cve_counter': 0,
+                'stapel_name': 'optipng',
+                'nvr_list': [self.get_latest_rpm_data("optipng", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
+            'Jetty': {
+                'check_func': self.is_jetty_issue,
+                'cve_counter': 0,
+                'stapel_name': 'jetty',
+                'nvr_list': [self.get_latest_rpm_data("jetty", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -2155,3 +2185,55 @@ class PkgHandler:
 
         return IsXIssue.MAYBE
 
+    @staticmethod
+    def is_composer_issue(desc, links) -> IsXIssue:
+        if 'composer' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'composer' and path_split[2] == 'composer'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_optipng_issue(desc, links) -> IsXIssue:
+        if 'optipng' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'optipng.sourceforge.net',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+            if len(path_split) > 2:
+                if netloc == 'sourceforge.net' and \
+                        (path_split[1] == 'projects' and path_split[2] == 'optipng'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_jetty_issue(desc, links) -> IsXIssue:
+        if 'jetty' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'eclipse' and path_split[2] == 'jetty.project'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
