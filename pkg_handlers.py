@@ -941,6 +941,26 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'mosquitto': {
+                'check_func': self.is_mosquitto_issue,
+                'cve_counter': 0,
+                'stapel_name': 'mosquitto',
+                'nvr_list': [self.get_latest_rpm_data("mosquitto", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vitaly.peshcherov']),
+                'watchers': None,
+            },
+            'Vorbis-tools': {
+                'check_func': self.is_vorbis_tools_issue,
+                'cve_counter': 0,
+                'stapel_name': 'vorbis-tools',
+                'nvr_list': [self.get_latest_rpm_data("vorbis-tools", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -2234,6 +2254,49 @@ class PkgHandler:
             if len(path_split) > 2:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'eclipse' and path_split[2] == 'jetty.project'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_mosquitto_issue(desc, links) -> IsXIssue:
+        if 'mosquitto' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'mosquitto.org',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_vorbis_tools_issue(desc, links) -> IsXIssue:
+        if ('vorbis' not in split_and_strip(desc)) and ('tools' not in split_and_strip(desc)):
+            return IsXIssue.NO
+
+        check_urls = [
+            'xiph.org',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'xiph' and path_split[2] == 'vorbis'):
+                    return IsXIssue.YES
+                elif netloc == 'github.com' and \
+                        (path_split[1] == 'xiph' and path_split[2] == 'vorbis-tools'):
                     return IsXIssue.YES
 
         return IsXIssue.MAYBE
