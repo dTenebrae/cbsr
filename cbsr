@@ -27,8 +27,8 @@ credentials = dotenv_values(".env")
 # ############################ КОНСТАНТЫ #############################
 NUMBER_OF_RECON = 5
 
-REPO_PATH = '/mnt/ssd/koji/packages'
-REDMINE_URL = "https://tracker.red-soft.ru"
+REPO_PATH = credentials['REPO_PATH']
+REDMINE_URL = credentials['REDMINE_URL']
 
 NIST_API_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 NIST_CVE = "cveId"

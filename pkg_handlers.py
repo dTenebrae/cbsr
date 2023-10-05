@@ -6,7 +6,9 @@ from enum import Enum
 from random import choice
 import urllib.parse as parse
 from itertools import zip_longest
+from dotenv import dotenv_values
 
+credentials = dotenv_values(".env")
 USERS_LIST = f"{os.path.expanduser('.')}/users.json"
 TAG_LIST_ST7 = [
     "os73-updates",
@@ -15,8 +17,8 @@ TAG_LIST_ST7 = [
 TAG_LIST_ST8 = [
     "redos80",
 ]
-KOJI7_URL = "http://10.81.1.26/kojihub"
-KOJI8_URL = "http://10.81.1.59/kojihub"
+KOJI7_URL = credentials['KOJI7_URL']
+KOJI8_URL = credentials['KOJI8_URL']
 
 
 class PatchResult(Enum):
