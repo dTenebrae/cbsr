@@ -5,7 +5,12 @@
 ```
 REDMINE_USER='username'
 REDMINE_PASSWORD='strong-and-complicated-password'
-VULNERS_KEY='vulners-api-key'
+NIST_KEY='nist-api-key'
+VULNERS_KEY='vulners-api-key' --ignored for now
 TELEGRAM_GROUP_ID='chat-or-group-id'
 BOT_TOKEN='bot-token'
+REPO_PATH='physical path to packages'
+REDMINE_URL='tracker url'
+KOJI7_URL='local address for stapel7'
+KOJI8_URL='local address for stapel8'
 ```
