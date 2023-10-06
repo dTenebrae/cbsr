@@ -8,7 +8,11 @@ import urllib.parse as parse
 from itertools import zip_longest
 from dotenv import dotenv_values
 
-credentials = dotenv_values(".env")
+# Get the path to the directory this file is in
+ENV_PATH = os.path.abspath(os.path.dirname(__file__))
+
+credentials = dotenv_values(f"{ENV_PATH}/.env")
+
 USERS_LIST = f"{os.path.expanduser('.')}/users.json"
 TAG_LIST_ST7 = [
     "os73-updates",
@@ -328,7 +332,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("wireshark", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'assigned_to': int(self.users_dict['oleg.sviridov']),
                 'watchers': None,
             },
             'libvirt': {

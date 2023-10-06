@@ -21,9 +21,13 @@ from datetime import timedelta, date, datetime
 from pkg_handlers import USERS_LIST, PkgHandler, compare_versions, IsXIssue, PatchResult
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# TODO Заменить хардкод
 os.chdir("/home/tenebrae/devel/cbsr/")
 
-credentials = dotenv_values(".env")
+# Get the path to the directory this file is in
+ENV_PATH = os.path.abspath(os.path.dirname(__file__))
+credentials = dotenv_values(f"{ENV_PATH}/.env")
+
 # ############################ КОНСТАНТЫ #############################
 NUMBER_OF_RECON = 5
 
