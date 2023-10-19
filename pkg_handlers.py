@@ -272,7 +272,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("curl", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'assigned_to': int(self.users_dict['ilia.polyvyanyy']),
                 'watchers': None,
             },
             'glpi': {
@@ -373,8 +373,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("openssl", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': choice([int(self.users_dict['vladislav.mitin']),
-                                       int(self.users_dict['ilia.polyvyanyy'])]),
+                'assigned_to': int(self.users_dict['ilia.polyvyanyy']),
                 'watchers': None,
             },
             'yasm': {
@@ -504,8 +503,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("nginx", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
-                                       int(self.users_dict['vladislav.mitin'])]),
+                'assigned_to': int(self.users_dict['vitaly.peshcherov']),
                 'watchers': None,
             },
             'tcpdump': {
@@ -622,7 +620,7 @@ class PkgHandler:
                              for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': choice([int(self.users_dict['ilia.polyvyanyy']),
-                                       int(self.users_dict['vladislav.mitin'])]),
+                                       int(self.users_dict['alexey.rodionov'])]),
                 'watchers': None,
             },
             'libjxl': {
