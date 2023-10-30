@@ -403,7 +403,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("libreswan", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['oleg.sviridov']),
                 'watchers': None,
             },
             'libreoffice': {
@@ -544,7 +544,17 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("runc", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['vadim.karyaev']),
+                'watchers': None,
+            },
+            'Kubernetes': {
+                'check_func': self.is_kubernetes_issue,
+                'cve_counter': 0,
+                'stapel_name': 'runc',
+                'nvr_list': [self.get_latest_rpm_data("kubernetes", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vadim.karyaev']),
                 'watchers': None,
             },
             'Moby': {
@@ -2301,6 +2311,21 @@ class PkgHandler:
                     return IsXIssue.YES
                 elif netloc == 'github.com' and \
                         (path_split[1] == 'xiph' and path_split[2] == 'vorbis-tools'):
+                    return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_kubernetes_issue(desc, links) -> IsXIssue:
+        if 'kubernetes' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'kubernetes' and path_split[2] == 'kubernetes'):
                     return IsXIssue.YES
 
         return IsXIssue.MAYBE
