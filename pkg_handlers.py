@@ -550,7 +550,7 @@ class PkgHandler:
             'Kubernetes': {
                 'check_func': self.is_kubernetes_issue,
                 'cve_counter': 0,
-                'stapel_name': 'runc',
+                'stapel_name': 'kubernetes',
                 'nvr_list': [self.get_latest_rpm_data("kubernetes", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
