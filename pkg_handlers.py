@@ -975,11 +975,31 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladimir.chirkin']),
                 'watchers': None,
             },
+            'Codium': {
+                'check_func': self.is_codium_issue,
+                'cve_counter': 0,
+                'stapel_name': 'codium',
+                'nvr_list': [self.get_latest_rpm_data("codium", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vadim.karyaev']),
+                'watchers': None,
+            },
+            'Erlang': {
+                'check_func': self.is_erlang_issue,
+                'cve_counter': 0,
+                'stapel_name': 'erlang',
+                'nvr_list': [self.get_latest_rpm_data("erlang", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
     @staticmethod
-    def is_kernel_issue(desc, links) -> IsXIssue:
+    def is_kernel_issue(desc, links, cpe) -> IsXIssue:
         """
         Проверка на то, что уязвимость относится к ядреной
         """
@@ -1007,10 +1027,13 @@ class PkgHandler:
             if (netloc == 'github.com' and path_first == 'torvalds') or (netloc in check_urls):
                 return IsXIssue.YES
 
+        if cpe and (cpe[0].split(":")[4] == 'linux_kernel'):
+            return IsXIssue.YES
+
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_vim_issue(desc, links) -> IsXIssue:
+    def is_vim_issue(desc, links, cpe) -> IsXIssue:
         if 'vim' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1019,11 +1042,13 @@ class PkgHandler:
             path_first = parse.urlparse(link).path.split('/')[1]
             if netloc == 'github.com' and path_first == 'vim':
                 return IsXIssue.YES
+        if cpe and (cpe[0].split(":")[4] == 'vim'):
+            return IsXIssue.YES
 
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_nextcloud_generic_issue(desc, links) -> IsXIssue:
+    def is_nextcloud_generic_issue(desc, links, cpe) -> IsXIssue:
         if 'nextcloud' not in desc:
             return IsXIssue.NO
 
@@ -1037,7 +1062,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_nextcloud_server_issue(desc, links) -> IsXIssue:
+    def is_nextcloud_server_issue(desc, links, cpe) -> IsXIssue:
         if 'nextcloud server' not in desc:
             return IsXIssue.NO
 
@@ -1051,7 +1076,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_nextcloud_mail_issue(desc, links) -> IsXIssue:
+    def is_nextcloud_mail_issue(desc, links, cpe) -> IsXIssue:
         split_desc = split_and_strip(desc)
         if 'nextcloud' not in split_desc and 'mail' not in split_desc:
             return IsXIssue.NO
@@ -1066,7 +1091,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_nextcloud_calendar_issue(desc, links) -> IsXIssue:
+    def is_nextcloud_calendar_issue(desc, links, cpe) -> IsXIssue:
         split_desc = split_and_strip(desc)
         if 'nextcloud' not in split_desc and 'calendar' not in split_desc:
             return IsXIssue.NO
@@ -1081,7 +1106,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_nextcloud_contacts_issue(desc, links) -> IsXIssue:
+    def is_nextcloud_contacts_issue(desc, links, cpe) -> IsXIssue:
         split_desc = split_and_strip(desc)
         if 'nextcloud' not in split_desc and 'contacts' not in split_desc:
             return IsXIssue.NO
@@ -1096,7 +1121,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_gpac_issue(desc, links) -> IsXIssue:
+    def is_gpac_issue(desc, links, cpe) -> IsXIssue:
         if 'gpac' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1109,7 +1134,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_redis_issue(desc, links) -> IsXIssue:
+    def is_redis_issue(desc, links, cpe) -> IsXIssue:
         if 'redis' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1122,7 +1147,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_systemd_issue(desc, links) -> IsXIssue:
+    def is_systemd_issue(desc, links, cpe) -> IsXIssue:
 
         if 'systemd' not in split_and_strip(desc):
             return IsXIssue.NO
@@ -1136,7 +1161,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_django_issue(desc, links) -> IsXIssue:
+    def is_django_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'docs.djangoproject.com',
             'www.djangoproject.com',
@@ -1152,7 +1177,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_moodle_issue(desc, links) -> IsXIssue:
+    def is_moodle_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'git.moodle.org',
             'moodle.org',
@@ -1171,7 +1196,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_firefox_issue(desc, links) -> IsXIssue:
+    def is_firefox_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'bugzilla.mozilla.org',
             'www.mozilla.org',
@@ -1187,7 +1212,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_thunderbird_issue(desc, links) -> IsXIssue:
+    def is_thunderbird_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'bugzilla.mozilla.org',
             'www.mozilla.org',
@@ -1203,7 +1228,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_curl_issue(desc, links) -> IsXIssue:
+    def is_curl_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'security.netapp.com',
             'hackerone.com',
@@ -1220,7 +1245,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_glpi_issue(desc, links) -> IsXIssue:
+    def is_glpi_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'pluginsGLPI',
             'glpi-project',
@@ -1238,7 +1263,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_libtiff_issue(desc, links) -> IsXIssue:
+    def is_libtiff_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'tiffcp.com',
         ]
@@ -1257,7 +1282,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_grafana_issue(desc, links) -> IsXIssue:
+    def is_grafana_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'grafana.com',
         ]
@@ -1276,7 +1301,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_imagemagick_issue(desc, links) -> IsXIssue:
+    def is_imagemagick_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'imagemagick.org',
         ]
@@ -1295,7 +1320,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_qemu_issue(desc, links) -> IsXIssue:
+    def is_qemu_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'git.qemu.org',
             'www.qemu.org'
@@ -1322,7 +1347,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_wireshark_issue(desc, links) -> IsXIssue:
+    def is_wireshark_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'www.wireshark.org',
         ]
@@ -1341,7 +1366,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_libvirt_issue(desc, links) -> IsXIssue:
+    def is_libvirt_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'libvirt.org',
         ]
@@ -1360,7 +1385,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_libraw_issue(desc, links) -> IsXIssue:
+    def is_libraw_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'www.libraw.org',
         ]
@@ -1379,7 +1404,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_samba_issue(desc, links) -> IsXIssue:
+    def is_samba_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'www.samba.org',
             'bugzilla.samba.org',
@@ -1396,7 +1421,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_openssl_issue(desc, links) -> IsXIssue:
+    def is_openssl_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'git.openssl.org',
             'www.openssl.org',
@@ -1414,7 +1439,7 @@ class PkgHandler:
         return IsXIssue.NO
 
     @staticmethod
-    def is_yasm_issue(desc, links) -> IsXIssue:
+    def is_yasm_issue(desc, links, cpe) -> IsXIssue:
         if 'yasm' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1427,7 +1452,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_emacs_issue(desc, links) -> IsXIssue:
+    def is_emacs_issue(desc, links, cpe) -> IsXIssue:
         if 'emacs' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1442,7 +1467,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_libreswan_issue(desc, links) -> IsXIssue:
+    def is_libreswan_issue(desc, links, cpe) -> IsXIssue:
         if 'libreswan' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1455,7 +1480,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_libreoffice_issue(desc, links) -> IsXIssue:
+    def is_libreoffice_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'www.libreoffice.org',
         ]
@@ -1471,7 +1496,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_sudo_issue(desc, links) -> IsXIssue:
+    def is_sudo_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'www.sudo.ws',
         ]
@@ -1490,7 +1515,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_podofo_issue(desc, links) -> IsXIssue:
+    def is_podofo_issue(desc, links, cpe) -> IsXIssue:
         if 'podofo' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1503,7 +1528,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_opensearch_issue(desc, links) -> IsXIssue:
+    def is_opensearch_issue(desc, links, cpe) -> IsXIssue:
         if 'opensearch' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1516,7 +1541,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_libheif_issue(desc, links) -> IsXIssue:
+    def is_libheif_issue(desc, links, cpe) -> IsXIssue:
         if 'libheif' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1530,7 +1555,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_flask_issue(desc, links) -> IsXIssue:
+    def is_flask_issue(desc, links, cpe) -> IsXIssue:
         if 'flask' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1544,7 +1569,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_cups_filters_issue(desc, links) -> IsXIssue:
+    def is_cups_filters_issue(desc, links, cpe) -> IsXIssue:
         if 'cups-filters' not in desc:
             return IsXIssue.NO
 
@@ -1559,7 +1584,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_cups_issue(desc, links) -> IsXIssue:
+    def is_cups_issue(desc, links, cpe) -> IsXIssue:
         if 'cups' not in desc:
             return IsXIssue.NO
 
@@ -1574,7 +1599,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_lua_issue(desc, links) -> IsXIssue:
+    def is_lua_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'www.lua.org',
         ]
@@ -1593,7 +1618,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_nginx_issue(desc, links) -> IsXIssue:
+    def is_nginx_issue(desc, links, cpe) -> IsXIssue:
         if 'nginx' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1606,7 +1631,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_tcpdump_issue(desc, links) -> IsXIssue:
+    def is_tcpdump_issue(desc, links, cpe) -> IsXIssue:
         if 'tcpdump' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1621,7 +1646,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_tmux_issue(desc, links) -> IsXIssue:
+    def is_tmux_issue(desc, links, cpe) -> IsXIssue:
         if 'tmux' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1636,7 +1661,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_flatpak_issue(desc, links) -> IsXIssue:
+    def is_flatpak_issue(desc, links, cpe) -> IsXIssue:
         if 'flatpak' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1651,7 +1676,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_runc_issue(desc, links) -> IsXIssue:
+    def is_runc_issue(desc, links, cpe) -> IsXIssue:
         if 'runc' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1666,7 +1691,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_moby_issue(desc, links) -> IsXIssue:
+    def is_moby_issue(desc, links, cpe) -> IsXIssue:
         if 'moby' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1681,7 +1706,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_libssh_issue(desc, links) -> IsXIssue:
+    def is_libssh_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'www.libssh.org',
         ]
@@ -1697,7 +1722,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_c_ares_issue(desc, links) -> IsXIssue:
+    def is_c_ares_issue(desc, links, cpe) -> IsXIssue:
         if 'c-ares' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1712,7 +1737,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_avahi_issue(desc, links) -> IsXIssue:
+    def is_avahi_issue(desc, links, cpe) -> IsXIssue:
         if 'avahi' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1727,7 +1752,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_opensc_issue(desc, links) -> IsXIssue:
+    def is_opensc_issue(desc, links, cpe) -> IsXIssue:
         if 'opensc' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1740,7 +1765,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_grpc_issue(desc, links) -> IsXIssue:
+    def is_grpc_issue(desc, links, cpe) -> IsXIssue:
         if 'grpc' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1753,7 +1778,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_libjxl_issue(desc, links) -> IsXIssue:
+    def is_libjxl_issue(desc, links, cpe) -> IsXIssue:
         if 'libjxl' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1766,7 +1791,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_libexpat_issue(desc, links) -> IsXIssue:
+    def is_libexpat_issue(desc, links, cpe) -> IsXIssue:
         if 'libexpat' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1779,7 +1804,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_openldap_issue(desc, links) -> IsXIssue:
+    def is_openldap_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'git.openldap.org',
             'bugs.openldap.org',
@@ -1796,7 +1821,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_netty_issue(desc, links) -> IsXIssue:
+    def is_netty_issue(desc, links, cpe) -> IsXIssue:
         if 'netty' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1809,7 +1834,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_nettle_issue(desc, links) -> IsXIssue:
+    def is_nettle_issue(desc, links, cpe) -> IsXIssue:
         if 'nettle' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1822,7 +1847,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_pypdf_issue(desc, links) -> IsXIssue:
+    def is_pypdf_issue(desc, links, cpe) -> IsXIssue:
         if 'pypdf' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1837,7 +1862,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_gradle_issue(desc, links) -> IsXIssue:
+    def is_gradle_issue(desc, links, cpe) -> IsXIssue:
         if 'gradle' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1852,7 +1877,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_ghostscript_issue(desc, links) -> IsXIssue:
+    def is_ghostscript_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'git.ghostscript.com',
             'bugs.ghostscript.com',
@@ -1869,7 +1894,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_pygments_issue(desc, links) -> IsXIssue:
+    def is_pygments_issue(desc, links, cpe) -> IsXIssue:
         if 'pygments' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1885,7 +1910,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_cargo_issue(desc, links) -> IsXIssue:
+    def is_cargo_issue(desc, links, cpe) -> IsXIssue:
         if 'cargo' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1900,7 +1925,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_rust_issue(desc, links) -> IsXIssue:
+    def is_rust_issue(desc, links, cpe) -> IsXIssue:
         if 'rust' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1915,7 +1940,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_unrar_issue(desc, links) -> IsXIssue:
+    def is_unrar_issue(desc, links, cpe) -> IsXIssue:
         if 'unrar' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1930,7 +1955,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_opendkim_issue(desc, links) -> IsXIssue:
+    def is_opendkim_issue(desc, links, cpe) -> IsXIssue:
         if 'opendkim' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1945,7 +1970,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_haproxy_issue(desc, links) -> IsXIssue:
+    def is_haproxy_issue(desc, links, cpe) -> IsXIssue:
         check_urls = [
             'www.haproxy.org',
         ]
@@ -1964,7 +1989,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_gitpython_issue(desc, links) -> IsXIssue:
+    def is_gitpython_issue(desc, links, cpe) -> IsXIssue:
         if 'gitpython' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1979,7 +2004,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_djvulibre_issue(desc, links) -> IsXIssue:
+    def is_djvulibre_issue(desc, links, cpe) -> IsXIssue:
         if 'djvulibre' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -1998,7 +2023,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_nasm_issue(desc, links) -> IsXIssue:
+    def is_nasm_issue(desc, links, cpe) -> IsXIssue:
         if 'nasm' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2015,7 +2040,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_poppler_issue(desc, links) -> IsXIssue:
+    def is_poppler_issue(desc, links, cpe) -> IsXIssue:
         if 'poppler' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2030,7 +2055,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_p7zip_issue(desc, links) -> IsXIssue:
+    def is_p7zip_issue(desc, links, cpe) -> IsXIssue:
         if 'p7zip' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2043,7 +2068,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_alertmanager_issue(desc, links) -> IsXIssue:
+    def is_alertmanager_issue(desc, links, cpe) -> IsXIssue:
         if 'alertmanager' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2058,7 +2083,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_giflib_issue(desc, links) -> IsXIssue:
+    def is_giflib_issue(desc, links, cpe) -> IsXIssue:
         if 'giflib' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2071,7 +2096,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_salt_issue(desc, links) -> IsXIssue:
+    def is_salt_issue(desc, links, cpe) -> IsXIssue:
         if 'salt' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2087,7 +2112,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_ruby_issue(desc, links) -> IsXIssue:
+    def is_ruby_issue(desc, links, cpe) -> IsXIssue:
         if 'ruby' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2103,7 +2128,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_jenkins_issue(desc, links) -> IsXIssue:
+    def is_jenkins_issue(desc, links, cpe) -> IsXIssue:
         if 'jenkins' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2119,7 +2144,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_reportlab_issue(desc, links) -> IsXIssue:
+    def is_reportlab_issue(desc, links, cpe) -> IsXIssue:
         if 'reportlab' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2137,7 +2162,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_webmin_issue(desc, links) -> IsXIssue:
+    def is_webmin_issue(desc, links, cpe) -> IsXIssue:
         if 'webmin' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2153,7 +2178,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_roundcube_issue(desc, links) -> IsXIssue:
+    def is_roundcube_issue(desc, links, cpe) -> IsXIssue:
         if 'roundcube' not in split_and_strip(desc):
             return IsXIssue.NO
         check_urls = [
@@ -2175,7 +2200,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_gnome_shell_issue(desc, links) -> IsXIssue:
+    def is_gnome_shell_issue(desc, links, cpe) -> IsXIssue:
         if ('gnome' not in split_and_strip(desc)) and ('shell' not in split_and_strip(desc)):
             return IsXIssue.NO
 
@@ -2190,7 +2215,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_libwebp_issue(desc, links) -> IsXIssue:
+    def is_libwebp_issue(desc, links, cpe) -> IsXIssue:
         if 'libwebp' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2205,7 +2230,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_snappy_java_issue(desc, links) -> IsXIssue:
+    def is_snappy_java_issue(desc, links, cpe) -> IsXIssue:
         if ('snappy' not in split_and_strip(desc)) and ('java' not in split_and_strip(desc)):
             return IsXIssue.NO
 
@@ -2220,7 +2245,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_composer_issue(desc, links) -> IsXIssue:
+    def is_composer_issue(desc, links, cpe) -> IsXIssue:
         if 'composer' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2235,7 +2260,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_optipng_issue(desc, links) -> IsXIssue:
+    def is_optipng_issue(desc, links, cpe) -> IsXIssue:
         if 'optipng' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2258,7 +2283,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_jetty_issue(desc, links) -> IsXIssue:
+    def is_jetty_issue(desc, links, cpe) -> IsXIssue:
         if 'jetty' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2273,7 +2298,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_mosquitto_issue(desc, links) -> IsXIssue:
+    def is_mosquitto_issue(desc, links, cpe) -> IsXIssue:
         if 'mosquitto' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2290,7 +2315,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_vorbis_tools_issue(desc, links) -> IsXIssue:
+    def is_vorbis_tools_issue(desc, links, cpe) -> IsXIssue:
         if ('vorbis' not in split_and_strip(desc)) and ('tools' not in split_and_strip(desc)):
             return IsXIssue.NO
 
@@ -2316,7 +2341,7 @@ class PkgHandler:
         return IsXIssue.MAYBE
 
     @staticmethod
-    def is_kubernetes_issue(desc, links) -> IsXIssue:
+    def is_kubernetes_issue(desc, links, cpe) -> IsXIssue:
         if 'kubernetes' not in split_and_strip(desc):
             return IsXIssue.NO
 
@@ -2327,5 +2352,38 @@ class PkgHandler:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'kubernetes' and path_split[2] == 'kubernetes'):
                     return IsXIssue.YES
+
+        if cpe and (cpe[0].split(":")[4] == 'kubernetes'):
+            return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_codium_issue(desc, links, cpe) -> IsXIssue:
+        if ('visual' not in split_and_strip(desc)) and \
+                ('studio' not in split_and_strip(desc)) and \
+                ('code' not in split_and_strip(desc)):
+            return IsXIssue.NO
+
+        if cpe and (cpe[0].split(":")[4] == 'visual_studio_code'):
+            return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_erlang_issue(desc, links, cpe) -> IsXIssue:
+        if 'erlang' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'erlang'):
+                    return IsXIssue.YES
+
+        if cpe and (cpe[0].split(":")[4] == 'erlang'):
+            return IsXIssue.YES
 
         return IsXIssue.MAYBE

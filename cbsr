@@ -351,96 +351,6 @@ class CveChecker:
         return result
 
     @staticmethod
-    def find_all_issues(n=30):
-        """
-        Сканируем трекер, собираем большинство уязвимостей и печатаем n популярных
-        """
-
-        def title_strip(title):
-            regex1 = re.compile(r"уязвимость в (.+)$", re.I)
-            regex2 = re.compile(r"уязвимости в (.+)$", re.I)
-            regex3 = re.compile(r"уязвимость: (.+)$", re.I)
-            title_reg = re.findall(regex1, title.text)
-            title_reg.extend(re.findall(regex2, title.text))
-            title_reg.extend(re.findall(regex3, title.text))
-            if title_reg:
-                return title_reg[0].strip().lower()
-
-        # ниже идут функции проверки на принадлежность к пакету
-        def kernel_str(str_to_check: str) -> str:
-            kw_list = [
-                'ядро linux',
-                'ядру linux',
-                'ядра linux',
-                'ядре linux',
-                'linux-ядра',
-            ]
-            for kw in kw_list:
-                if kw in str_to_check:
-                    return 'linux kernel'
-            return str_to_check
-
-        def firefox_str(str_to_check: str) -> str:
-            return 'firefox' if 'firefox' in str_to_check else str_to_check
-
-        def systemd_str(str_to_check: str) -> str:
-            return 'systemd' if 'systemd' in str_to_check else str_to_check
-
-        def nextcloud_str(str_to_check: str) -> str:
-            return 'nextcloud' if 'nextcloud' in str_to_check else str_to_check
-
-        def thunderbird_str(str_to_check: str) -> str:
-            return 'thunderbird' if 'thunderbird' in str_to_check else str_to_check
-
-        def curl_str(str_to_check: str) -> str:
-            kw_list = [
-                'curl',
-                'libcurl',
-            ]
-            for kw in kw_list:
-                if kw in str_to_check:
-                    return 'curl'
-            return str_to_check
-
-        # список из этих функций, чтобы было удобнее итерироваться
-        filter_funcs = [
-            kernel_str,
-            firefox_str,
-            systemd_str,
-            nextcloud_str,
-            thunderbird_str,
-            curl_str,
-        ]
-
-        limit = 100
-        # для того, чтобы пройти все страницы с найденными темами потребуется счетчик для оффсета
-        cnt = 0
-        result = []
-        while True:
-            url = f"{REDMINE_URL}/projects/cve/search.xml?&issues=1&" \
-                  f"limit={limit}&offset={cnt}&titles_only=1&q=уязвимост"
-            resp = get_response(url,
-                                bs=True,
-                                parser='xml',
-                                headers=HEADERS,
-                                auth=(credentials['REDMINE_USER'],
-                                      credentials['REDMINE_PASSWORD']),
-                                verify=False
-                                )
-            titles = resp.find_all("title")
-            t_count = len(titles)
-            result.extend(list(map(title_strip, titles)))
-            result = list(filter(lambda x: x is not None, result))
-            for func in filter_funcs:
-                result = list(map(func, result))
-            cnt += limit
-            if t_count < limit:
-                break
-
-        for item in Counter(result).most_common(n):
-            print(f"{item[0]:<20} {item[1]:>5}")
-
-    @staticmethod
     def user_wants_create_issue() -> bool:
         """
         Проверяем, хочет ли юзер создавать задачу на трекере
@@ -594,6 +504,19 @@ class CveChecker:
         # TODO выведем сообщение что у нас версия vim не подверженая уязвимости
         # return
 
+    @staticmethod
+    def get_cpe(cve):
+        # Создадим (если получится), кортеж из строки, содержащей строку, из которой можно выдрать имя пакета, и
+        # версию пакета, до которой уязвимо
+        cpe = cve['cve'].get("configurations")
+        if cpe:
+            criteria = cpe[0]['nodes'][0]['cpeMatch'][0]['criteria']
+            vuln_ver = [(item.get('versionStartIncluding', ''), item.get('versionEndExcluding', ''))
+                        for item in cpe[0]['nodes'][0]['cpeMatch']]
+            vuln_ver = [item for item in vuln_ver if item[0] or item[1]]
+            cpe = (criteria, vuln_ver)
+        return cpe
+
     def get_issue(self, name, cve, desc, links, check_patch=True) -> dict:
         """
         Разбираем nist json на нужный нам словарь
@@ -626,6 +549,7 @@ class CveChecker:
             'links': links,
             'scores': scores,
             'patch': patch,
+            'cpe': self.get_cpe(cve),
         }
 
     def get_one_cve(self, cve_id: str, check_patch=False) -> dict:
@@ -645,16 +569,16 @@ class CveChecker:
         desc = cve['cve']['descriptions'][0]['value'].lower()
         links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
-        for item in self.which_pkg(desc, links):
+        for item in self.which_pkg(desc, links, self.get_cpe(cve)):
             print(f"{item}")
 
         return self.get_issue('unknown', cve, desc, links, check_patch=check_patch)
 
     # TODO Дублирование кода и смысла с функцией check_cve. Переписать
-    def which_pkg(self, desc, links) -> list:
+    def which_pkg(self, desc, links, cve) -> list:
         result = []
         for pkg_name, pkg_data in self.pkg_handler.pkgs_data.items():
-            is_pkg = pkg_data['check_func'](desc, links)
+            is_pkg = pkg_data['check_func'](desc, links, cve)
             if is_pkg == IsXIssue.YES:
                 result.append({pkg_name: 'yes'})
             elif is_pkg == IsXIssue.MAYBE:
@@ -687,7 +611,7 @@ class CveChecker:
         :return: Возвращаем счетчики уязвимостей обратно
         """
 
-        is_pkg = check_func(desc, links)
+        is_pkg = check_func(desc, links, cpe=self.get_cpe(cve))
         if is_pkg == IsXIssue.YES:
             cve_count += 1
             cve_id_list.append(cve['cve']['id'])
@@ -796,6 +720,11 @@ class CveChecker:
         if cve.get('fixed_in', ""):
             result += f'Исправлено:\n'
             result += f"* *{cve['fixed_in']}*\n"
+        if cve.get('cpe', "") and cve['cpe'][1]:
+            result += f"\nУязвимые версии:\n"
+            for item in cve['cpe'][1]:
+                result += f"* {'от ' + item[0] + ' ' if item[0] else ''}" \
+                          f"{'до ' + item[1] if item[1] else ''}\n"
         if cve.get('patch', ""):
             for i, item in enumerate(cve['patch'], start=1):
                 result += f'\nДанные патча №{i}:\n\n'
@@ -1145,11 +1074,6 @@ def parse_args():
         action='store_false',
     )
     parser.add_argument(
-        '--stat',
-        action='store_true',
-        help="Статистика по уязвимостям на трекере"
-    )
-    parser.add_argument(
         '--users',
         action='store_true',
         help="Создать файл со списком юзеров редмайна"
@@ -1187,7 +1111,6 @@ def parse_args():
     parser.set_defaults(auto=True)
     parser.set_defaults(patch_check=True)
     parser.set_defaults(send=True)
-    parser.set_defaults(stat=False)
     parser.set_defaults(users=False)
     parser.set_defaults(moz=False)
     parser.set_defaults(zero=False)
@@ -1205,7 +1128,6 @@ if __name__ == '__main__':
     CREATE_AN_ISSUE = arguments.tracker and CHECK_REDMINE
     AUTO = arguments.auto
     CVE = arguments.cve
-    STAT = arguments.stat
     USERS = arguments.users
     START_DATE = arguments.start_date
 
@@ -1224,9 +1146,6 @@ if __name__ == '__main__':
         else:
             print("CVE not found")
             exit(0)
-    if STAT:
-        cve_checker.find_all_issues()
-        exit(0)
     if arguments.zero:
         cve_checker.get_zero_cves()
         exit(0)
