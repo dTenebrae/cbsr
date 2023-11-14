@@ -2294,6 +2294,8 @@ class PkgHandler:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'eclipse' and path_split[2] == 'jetty.project'):
                     return IsXIssue.YES
+        if cpe and (cpe[0].split(":")[4] == 'jetty'):
+            return IsXIssue.YES
 
         return IsXIssue.MAYBE
 
