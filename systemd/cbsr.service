@@ -1,0 +1,11 @@
+[Unit]
+Description=Runs CyBerSecurity Replacer once in a while
+Wants=cbsr.timer
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/tenebrae/devel/cbsr/
+ExecStart=/home/tenebrae/devel/cbsr/cbsr
+
+[Install]
+WantedBy=multi-user.target

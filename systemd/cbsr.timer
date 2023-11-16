@@ -1,0 +1,11 @@
+[Unit]
+Description=Runs CyBerSecurity Replacer once in a while
+Requires=cbsr.service
+After=network-online.target
+
+[Timer]
+Unit=cbsr.service
+OnCalendar=0/1:00:00
+
+[Install]
+WantedBy=timers.target
