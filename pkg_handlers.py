@@ -1005,6 +1005,17 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['oleg.sviridov']),
                 'watchers': None,
             },
+            'ffmpeg': {
+                'check_func': self.is_ffmpeg_issue,
+                'cve_counter': 0,
+                'stapel_name': 'ffmpeg',
+                'nvr_list': [self.get_latest_rpm_data("ffmpeg", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': choice([int(self.users_dict['ilia.polyvyanyy']),
+                                       int(self.users_dict['vitaly.peshcherov'])]),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -1202,6 +1213,9 @@ class PkgHandler:
                 return IsXIssue.YES
             elif netloc in check_urls:
                 return IsXIssue.YES
+
+        if cpe and (cpe[0].split(":")[4] == 'moodle'):
+            return IsXIssue.YES
 
         return IsXIssue.MAYBE
 
@@ -2419,5 +2433,25 @@ class PkgHandler:
 
         if cpe and (cpe[0].split(":")[4] == 'chrome'):
             return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_ffmpeg_issue(desc, links, cpe) -> IsXIssue:
+        if 'ffmpeg' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'patchwork.ffmpeg.org',
+        ]
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'FFmpeg' and path_split[2] == 'FFmpeg'):
+                    return IsXIssue.YES
+            if netloc in check_urls:
+                return IsXIssue.YES
 
         return IsXIssue.MAYBE
