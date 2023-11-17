@@ -1026,6 +1026,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vadim.karyaev']),
                 'watchers': None,
             },
+            'cri-o': {
+                'check_func': self.is_cri_o_issue,
+                'cve_counter': 0,
+                'stapel_name': 'cri-o',
+                'nvr_list': [self.get_latest_rpm_data("cri-o", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['dmitry.safonov']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -2482,6 +2492,25 @@ class PkgHandler:
                 return IsXIssue.YES
 
         if cpe and (cpe[0].split(":")[3] == 'golang'):
+            return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_cri_o_issue(desc, links, cpe) -> IsXIssue:
+        if ('cri' not in split_and_strip(desc)) and ('o' not in split_and_strip(desc)):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'cri-o' and path_split[2] == 'cri-o'):
+                    return IsXIssue.YES
+
+        if cpe and (cpe[0].split(":")[3] == 'kubernetes') \
+                and (cpe[0].split(":")[4] == 'cri-o'):
             return IsXIssue.YES
 
         return IsXIssue.MAYBE
