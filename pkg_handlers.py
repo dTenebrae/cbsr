@@ -200,7 +200,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("gpac", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'assigned_to': int(self.users_dict['ilia.polyvyanyy']),
                 'watchers': None,
             },
             'redis': {
