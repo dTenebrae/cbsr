@@ -1036,6 +1036,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['dmitry.safonov']),
                 'watchers': None,
             },
+            'libde265': {
+                'check_func': self.is_libde265_issue,
+                'cve_counter': 0,
+                'stapel_name': 'libde265',
+                'nvr_list': [self.get_latest_rpm_data("libde265", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -2512,5 +2522,20 @@ class PkgHandler:
         if cpe and (cpe[0].split(":")[3] == 'kubernetes') \
                 and (cpe[0].split(":")[4] == 'cri-o'):
             return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_libde265_issue(desc, links, cpe) -> IsXIssue:
+        if 'libde265' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'strukturag' and path_split[2] == 'libde265'):
+                    return IsXIssue.YES
 
         return IsXIssue.MAYBE
