@@ -2556,11 +2556,12 @@ class PkgHandler:
             return IsXIssue.NO
 
         check_urls = [
-            'www.openssh.com,
+            'www.openssh.com',
         ]
 
         for link in links:
             netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
             if netloc in check_urls:
                 return IsXIssue.YES
 
