@@ -1056,6 +1056,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['oleg.sviridov']),
                 'watchers': None,
             },
+            'openvpn': {
+                'check_func': self.is_openvpn_issue,
+                'cve_counter': 0,
+                'stapel_name': 'openvpn',
+                'nvr_list': [self.get_latest_rpm_data("openvpn", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['oleg.sviridov']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -2571,6 +2581,32 @@ class PkgHandler:
                     return IsXIssue.YES
 
         if cpe and (cpe[0].split(":")[4] == 'openssh'):
+            return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_openvpn_issue(desc, links, cpe) -> IsXIssue:
+        if 'openvpn' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'community.openvpn.net',
+            'openvpn.net',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'OpenVPN' and path_split[2] == 'openvpn'):
+                    return IsXIssue.YES
+
+        if cpe and (cpe[0].split(":")[4] == 'openvpn'):
             return IsXIssue.YES
 
         return IsXIssue.MAYBE
