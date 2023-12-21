@@ -302,7 +302,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("grafana", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['vitaly.peshcherov']),
                 'watchers': None,
             },
             'ImageMagick': {
