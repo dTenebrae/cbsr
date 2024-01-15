@@ -140,8 +140,8 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("vim", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['artem.chernyshev']),
-                'watchers': [int(self.users_dict['artem.chernyshev'])],
+                'assigned_to': int(self.users_dict['ilya.leontiev']),
+                'watchers': None,
             },
             'nextcloud': {
                 'check_func': self.is_nextcloud_generic_issue,
@@ -322,7 +322,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("qemu", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['oleg.sviridov']),
                 'watchers': None,
             },
             'Wireshark': {
@@ -393,7 +393,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("emacs", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['anton.savin']),
                 'watchers': None,
             },
             'libreswan': {
@@ -574,7 +574,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("libssh", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['anton.savin']),
                 'watchers': None,
             },
             'c-ares': {
@@ -650,7 +650,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("openldap", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['anton.savin']),
                 'watchers': None,
             },
             'Netty': {
@@ -670,7 +670,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("nettle", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['ilia.leontiev']),
                 'watchers': None,
             },
             'pyPdf': {
@@ -680,7 +680,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("pyPdf", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['ilia.leontiev']),
                 'watchers': None,
             },
             'Gradle': {
@@ -690,7 +690,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("gradle", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['yaroslav.kokurin']),
                 'watchers': None,
             },
             'Ghostscript': {
@@ -710,7 +710,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("python-pygments", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['ilia.leontiev']),
                 'watchers': None,
             },
             'cargo': {
@@ -720,7 +720,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("rust", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
             'rust': {
@@ -730,7 +730,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("rust", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
             'unRAR': {
@@ -760,7 +760,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("haproxy", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['yaroslav.kokurin']),
                 'watchers': None,
             },
             'GitPython': {
@@ -791,7 +791,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("nasm", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['anton.savin']),
                 'watchers': None,
             },
             'Poppler': {
@@ -801,7 +801,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("poppler", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
             'p7zip': {
@@ -811,7 +811,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("p7zip", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
             'Alertmanager': {
@@ -842,7 +842,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("salt", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['anton.savin']),
                 'watchers': None,
             },
             'Ruby': {
@@ -872,7 +872,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("python-reportlab", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['ilya.leontiev']),
                 'watchers': None,
             },
             'Webmin': {
@@ -922,7 +922,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("snappy-java", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['maxim.noskov']),
                 'watchers': None,
             },
             'composer': {
@@ -942,7 +942,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("optipng", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['yaroslav.kokurin']),
                 'watchers': None,
             },
             'Jetty': {
@@ -952,7 +952,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("jetty", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['maxim.noskov']),
                 'watchers': None,
             },
             'mosquitto': {
@@ -972,7 +972,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("vorbis-tools", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['yaroslav.kokurin']),
                 'watchers': None,
             },
             'Codium': {
@@ -992,7 +992,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("erlang", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladimir.chirkin']),
+                'assigned_to': int(self.users_dict['anton.savin']),
                 'watchers': None,
             },
             'Chromium': {
