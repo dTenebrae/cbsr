@@ -1126,6 +1126,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['anton.savin']),
                 'watchers': None,
             },
+            'TinyXML': {
+                'check_func': self.is_tinyxml_issue,
+                'cve_counter': 0,
+                'stapel_name': 'tinyxml',
+                'nvr_list': [self.get_latest_rpm_data("tinyxml", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['anton.savin']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -2784,6 +2794,24 @@ class PkgHandler:
                     return IsXIssue.YES
 
         if cpe and (cpe[0].split(":")[4] == 'atril'):
+            return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_tinyxml_issue(desc, links, cpe) -> IsXIssue:
+        if 'tinyxml' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'sourceforge.net' and \
+                        (path_split[2] == 'tinyxml'):
+                    return IsXIssue.YES
+
+        if cpe and (cpe[0].split(":")[4] == 'tinyxml'):
             return IsXIssue.YES
 
         return IsXIssue.MAYBE
