@@ -1066,6 +1066,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['oleg.sviridov']),
                 'watchers': None,
             },
+            'openvswitch': {
+                'check_func': self.is_openvswitch_issue,
+                'cve_counter': 0,
+                'stapel_name': 'openvswitch',
+                'nvr_list': [self.get_latest_rpm_data("openvswitch", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -2607,6 +2617,24 @@ class PkgHandler:
                     return IsXIssue.YES
 
         if cpe and (cpe[0].split(":")[4] == 'openvpn'):
+            return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_openvswitch_issue(desc, links, cpe) -> IsXIssue:
+        if 'openvswitch' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'openvswitch'):
+                    return IsXIssue.YES
+
+        if cpe and (cpe[0].split(":")[4] == 'openvswitch'):
             return IsXIssue.YES
 
         return IsXIssue.MAYBE
