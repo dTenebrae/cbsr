@@ -1488,6 +1488,9 @@ class PkgHandler:
             if netloc in check_urls:
                 return IsXIssue.YES
 
+        if cpe and (cpe[0].split(":")[4] == 'qemu'):
+            return IsXIssue.YES
+
         return IsXIssue.MAYBE
 
     @staticmethod
