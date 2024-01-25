@@ -2280,6 +2280,7 @@ class PkgHandler:
             return IsXIssue.NO
 
         check_urls = [
+            'www.jenkins.io',
             'jenkins.io',
         ]
 
