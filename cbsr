@@ -890,7 +890,7 @@ class CveChecker:
             print(f"for user {user} found {len(result)} package(s):")
             print(45 * "-")
             for item in result:
-                print(item)
+                print(f"* {item}")
         else:
             print(f"No packages found for user: {user}")
 
