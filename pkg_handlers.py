@@ -1145,6 +1145,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['ilia.polyvyanyy']),
                 'watchers': None,
             },
+            'urllib3': {
+                'check_func': self.is_urllib3_issue,
+                'cve_counter': 0,
+                'stapel_name': 'python-urllib3',
+                'nvr_list': [self.get_latest_rpm_data("python-urllib3", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['ilya.leontiev']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -2845,6 +2855,25 @@ class PkgHandler:
 
         if cpe and \
                 (cpe[0].split(":")[3] == 'apache' and cpe[0].split(":")[4] == 'http_server'):
+            return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_urllib3_issue(desc, links, cpe) -> IsXIssue:
+        if 'urllib3' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'urllib3' and path_split[2] == 'urllib3'):
+                    return IsXIssue.YES
+
+        if cpe and (cpe[0].split(":")[4] == 'urllib3'):
             return IsXIssue.YES
 
         return IsXIssue.MAYBE
