@@ -878,6 +878,22 @@ class CveChecker:
         for _, pkg_data in self.pkg_handler.pkgs_data.items():
             print(f"{pkg_data['stapel_name']:<40} -> {inv_users[pkg_data['assigned_to']]:<5}")
 
+    def show_pkgs_for_maintainer(self, user):
+        result = []
+        with open(USERS_LIST) as f:
+            users_dict = json.loads(f.read())
+        for _, pkg_data in self.pkg_handler.pkgs_data.items():
+            if pkg_data['assigned_to'] == users_dict[user]:
+                result.append(pkg_data['stapel_name'])
+
+        if result:
+            print(f"for user {user} found {len(result)} package(s):")
+            print(45 * "-")
+            for item in result:
+                print(item)
+        else:
+            print(f"No packages found for user: {user}")
+
     @staticmethod
     def send_to_telegram(message: str) -> dict:
         """
@@ -1116,6 +1132,12 @@ def parse_args():
         action='store_true',
         help="Вывести текущих сборщиков"
     )
+    parser.add_argument(
+        '--show-pkgs-for-maintainer',
+        type=str,
+        default='',
+        help="Вывести пакеты, которые назначаются на конкретного человека. Формат: ivan.ivanov"
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1178,6 +1200,9 @@ if __name__ == '__main__':
         exit(0)
     if arguments.show_maintainers:
         cve_checker.show_maintainers()
+        exit(0)
+    if arguments.show_pkgs_for_maintainer:
+        cve_checker.show_pkgs_for_maintainer(arguments.show_pkgs_for_maintainer)
         exit(0)
     print(80 * "=")
     if START_DATE:
