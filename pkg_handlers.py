@@ -1123,7 +1123,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("atril", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['anton.savin']),
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
             'TinyXML': {

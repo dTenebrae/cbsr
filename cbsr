@@ -14,7 +14,6 @@ from time import sleep
 import urllib.parse as parse
 from bs4 import BeautifulSoup
 from redminelib import Redmine
-from collections import Counter
 from dotenv import dotenv_values
 from urllib.parse import urljoin
 from datetime import timedelta, date, datetime
@@ -872,6 +871,13 @@ class CveChecker:
         for pkg_name, pkg_data in self.pkg_handler.pkgs_data.items():
             print(f"{pkg_name:<20} -> {pkg_data['stapel_name']:<5}")
 
+    def show_maintainers(self):
+        with open(USERS_LIST) as f:
+            users_dict = json.loads(f.read())
+            inv_users = {v: k for k, v in users_dict.items()}
+        for _, pkg_data in self.pkg_handler.pkgs_data.items():
+            print(f"{pkg_data['stapel_name']:<40} -> {inv_users[pkg_data['assigned_to']]:<5}")
+
     @staticmethod
     def send_to_telegram(message: str) -> dict:
         """
@@ -1105,6 +1111,11 @@ def parse_args():
         action='store_true',
         help="Вывести текущие парсеры"
     )
+    parser.add_argument(
+        '--show-maintainers',
+        action='store_true',
+        help="Вывести текущих сборщиков"
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1116,6 +1127,7 @@ def parse_args():
     parser.set_defaults(zero=False)
     parser.set_defaults(vim=False)
     parser.set_defaults(current_parsers=False)
+    parser.set_defaults(show_maintainers=False)
     return parser.parse_args()
 
 
@@ -1163,6 +1175,9 @@ if __name__ == '__main__':
         exit(0)
     if arguments.current_parsers:
         cve_checker.print_parsers()
+        exit(0)
+    if arguments.show_maintainers:
+        cve_checker.show_maintainers()
         exit(0)
     print(80 * "=")
     if START_DATE:
