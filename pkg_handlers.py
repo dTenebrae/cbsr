@@ -1155,6 +1155,26 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['ilya.leontiev']),
                 'watchers': None,
             },
+            'Bind': {
+                'check_func': self.is_bind_issue,
+                'cve_counter': 0,
+                'stapel_name': 'bind',
+                'nvr_list': [self.get_latest_rpm_data("bind", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['dmitry.safonov']),
+                'watchers': None,
+            },
+            'Python': {
+                'check_func': self.is_python_issue,
+                'cve_counter': 0,
+                'stapel_name': 'python3',
+                'nvr_list': [self.get_latest_rpm_data("python3", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['ilya.leontiev']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -2874,6 +2894,44 @@ class PkgHandler:
                     return IsXIssue.YES
 
         if cpe and (cpe[0].split(":")[4] == 'urllib3'):
+            return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_bind_issue(desc, links, cpe) -> IsXIssue:
+        if 'bind' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'kb.isc.org',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+        if cpe and (cpe[0].split(":")[4] == 'bind'):
+            return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_python_issue(desc, links, cpe) -> IsXIssue:
+        if 'python' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            path_split = parse.urlparse(link).path.split('/')
+
+            if len(path_split) > 2:
+                if netloc == 'github.com' and \
+                        (path_split[1] == 'python' and path_split[2] == 'cpython'):
+                    return IsXIssue.YES
+
+        if cpe and (cpe[0].split(":")[3] == 'python' and cpe[0].split(":")[4] == 'python'):
             return IsXIssue.YES
 
         return IsXIssue.MAYBE
