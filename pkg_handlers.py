@@ -1174,6 +1174,26 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['ilya.leontiev']),
                 'watchers': None,
             },
+            'DHCPD': {
+                'check_func': self.is_postgresql_issue,
+                'cve_counter': 0,
+                'stapel_name': 'dhcp',
+                'nvr_list': [self.get_latest_rpm_data("dhcp", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['yaroslav.kokurin']),
+                'watchers': None,
+            },
+            'PostgreSQL': {
+                'check_func': self.is_dhcpd_issue,
+                'cve_counter': 0,
+                'stapel_name': 'postgresql',
+                'nvr_list': [self.get_latest_rpm_data("postgresql", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['dmitry.safonov']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -2931,6 +2951,37 @@ class PkgHandler:
                     return IsXIssue.YES
 
         if cpe and (cpe[0].split(":")[3] == 'python' and cpe[0].split(":")[4] == 'python'):
+            return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_dhcpd_issue(desc, links, cpe) -> IsXIssue:
+        if 'dhcpd' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        if cpe and \
+                (cpe[0].split(":")[3] == 'isc' and cpe[0].split(":")[4] == 'dhcpd'):
+            return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_postgresql_issue(desc, links, cpe) -> IsXIssue:
+        if 'postgresql' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'www.postgresql.org',
+            'git.postgresql.org',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+        if cpe and (cpe[0].split(":")[3] == 'postgresql' and cpe[0].split(":")[4] == 'postgresql'):
             return IsXIssue.YES
 
         return IsXIssue.MAYBE
