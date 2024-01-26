@@ -473,7 +473,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("cups-filters", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vladislav.mitin']),
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
             'CUPS': {
@@ -740,7 +740,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("unrar", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['vitaly.peshcherov']),
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
             'OpenDKIM': {
@@ -1011,8 +1011,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("ffmpeg", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': choice([int(self.users_dict['ilia.polyvyanyy']),
-                                       int(self.users_dict['vitaly.peshcherov'])]),
+                'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
             'golang': {
@@ -1032,7 +1031,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("cri-o", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['dmitry.safonov']),
+                'assigned_to': int(self.users_dict['anton.savin']),
                 'watchers': None,
             },
             'libde265': {
