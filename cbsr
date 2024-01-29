@@ -11,14 +11,13 @@ import argparse
 import subprocess
 import redminelib
 from time import sleep
-from pathlib import Path
 import urllib.parse as parse
 from bs4 import BeautifulSoup
 from redminelib import Redmine
 from dotenv import dotenv_values
 from urllib.parse import urljoin
 from datetime import timedelta, date, datetime
-from pkg_handlers import USERS_LIST, PkgHandler, compare_versions, IsXIssue, PatchResult
+from pkg_handlers import USERS_LIST, PkgHandler, IsXIssue, PatchResult
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # TODO Заменить хардкод
@@ -474,35 +473,35 @@ class CveChecker:
         # self.exec_bash(unpack_cmd)
         # self.exec_bash(rm_cmd)
 
-    def get_vim_data(self, desc):
-        """
-        Функция получения версии уязвимого вима и запуска пересборки нового, если доступно.
-        Пока заготовка
-        :param desc: Описание узявимости
-        :return:
-        """
-
-        vim_ver_re = re.compile(r"\d\.\d\.\d+")
-        vuln_ver = re.findall(vim_ver_re, desc)[0]
-        vim_resp = get_response("https://github.com/vim/vim/tags", bs=False)
-        vim_source_latest = re.findall(r"archive/refs/tags/[^/]+\.tar\.gz", vim_resp.text)[0]
-        latest_vim_ver = re.findall(vim_ver_re, vim_source_latest)[0]
-
-        vim_latest_src_url = f"https://github.com/vim/vim/{vim_source_latest}"
-
-        vim_srcrpm_urls = []
-
-        for tag in self.pkg_handler.tags:
-            vim_data = self.pkg_handler.get_latest_rpm_data("vim", tag)
-            vim_srcrpm_urls.append(f"'http://stapel.red-soft.ru/kojifiles/packages/{vim_data['name']}"
-                                   f"/{vim_data['version']}/{vim_data['release']}/src/{vim_data['nvr']}.src.rpm")
-
-        if compare_versions(vuln_ver, latest_vim_ver):
-            return
-
-        # if parse_version(self.vim_73) > parse_version(vuln_ver):
-        # TODO выведем сообщение что у нас версия vim не подверженая уязвимости
-        # return
+    # def get_vim_data(self, desc):
+    #     """
+    #     Функция получения версии уязвимого вима и запуска пересборки нового, если доступно.
+    #     Пока заготовка
+    #     :param desc: Описание узявимости
+    #     :return:
+    #     """
+    #
+    #     vim_ver_re = re.compile(r"\d\.\d\.\d+")
+    #     vuln_ver = re.findall(vim_ver_re, desc)[0]
+    #     vim_resp = get_response("https://github.com/vim/vim/tags", bs=False)
+    #     vim_source_latest = re.findall(r"archive/refs/tags/[^/]+\.tar\.gz", vim_resp.text)[0]
+    #     latest_vim_ver = re.findall(vim_ver_re, vim_source_latest)[0]
+    #
+    #     vim_latest_src_url = f"https://github.com/vim/vim/{vim_source_latest}"
+    #
+    #     vim_srcrpm_urls = []
+    #
+    #     for tag in self.pkg_handler.tags:
+    #         vim_data = self.pkg_handler.get_latest_rpm_data("vim", tag)
+    #         vim_srcrpm_urls.append(f"'http://stapel.red-soft.ru/kojifiles/packages/{vim_data['name']}"
+    #                                f"/{vim_data['version']}/{vim_data['release']}/src/{vim_data['nvr']}.src.rpm")
+    #
+    #     if compare_versions(vuln_ver, latest_vim_ver):
+    #         return
+    #
+    #     # if parse_version(self.vim_73) > parse_version(vuln_ver):
+    #     # TODO выведем сообщение что у нас версия vim не подверженая уязвимости
+    #     # return
 
     @staticmethod
     def get_cpe(cve):
@@ -895,8 +894,61 @@ class CveChecker:
         else:
             print(f"No packages found for user: {user}")
 
+    @staticmethod
+    def get_github_advisory(ghsa_id):
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {credentials['GITHUB_TOKEN']}",
+            "X-GitHub-Api-Version": "2022-11-28"
+        }
+        url = f"https://api.github.com/advisories/{ghsa_id}"
+        resp = get_response(url,
+                            bs=False,
+                            parser='xml',
+                            headers=headers,
+                            verify=False
+                            )
+        # TODO | github'овское API достаточно богато на информацию,
+        # TODO | в том числе на имя пакета. Можно это использовать
+        result = resp.json() if resp else None
+        if result is None:
+            return ghsa_id
+        return result['cve_id'] if result.get('cve_id', '') else ghsa_id
+
+    @staticmethod
+    def get_json_data(data) -> list:
+        result = []
+        for item in data:
+            current_vuln_id = item.get("ID", "")
+            if current_vuln_id and current_vuln_id != 'none':
+                result.append(current_vuln_id)
+        return result
+
+    def get_luntry_cve(self, luntry_path) -> list:
+        vuln_list = []
+        for path, subdirs, files in os.walk(luntry_path):
+            for name in files:
+                if name.endswith('.json'):
+                    file_name = os.path.join(path, name)
+                    with open(file_name) as json_file:
+                        json_data = json.load(json_file)
+                        vuln_list.extend(self.get_json_data(json_data))
+        vuln_list = set(vuln_list)
+        vuln_list = [self.get_github_advisory(item)
+                     if item.split('-')[0] == 'GHSA'
+                     else item for item in vuln_list]
+        return list(sorted(vuln_list))
+
     def check_luntry_jsons(self, luntry_path: str):
-        pass
+        luntry_cve_list = self.get_luntry_cve(luntry_path)
+        for item in luntry_cve_list:
+            if item.split('-')[0] == 'GHSA':
+                print(f"{item} -> https://github.com/advisories/{item}")
+            elif item.split('-')[0] == 'CVE':
+                existence = self.is_cve_exists_rest_api(item)
+                print(f"{item} -> exists on tracker: {existence} -> https://nvd.nist.gov/vuln/detail/{item}")
+            else:
+                continue
 
     @staticmethod
     def send_to_telegram(message: str) -> dict:
@@ -1109,11 +1161,11 @@ def parse_args():
         action='store_true',
         help="тестовый флаг для зеродэй парсинга"
     )
-    parser.add_argument(
-        '--vim',
-        action='store_true',
-        help="тестовый флаг для обработки вима"
-    )
+    # parser.add_argument(
+    #     '--vim',
+    #     action='store_true',
+    #     help="тестовый флаг для обработки вима"
+    # )
     parser.add_argument(
         '--nvr',
         type=str,
@@ -1193,10 +1245,10 @@ if __name__ == '__main__':
     if arguments.zero:
         cve_checker.get_zero_cves()
         exit(0)
-    if arguments.vim:
-        cve_checker.get_vim_data('Integer Overflow or Wraparound in GitHub '
-                                 'repository vim/vim prior to 9.0.1532.'.lower())
-        exit(0)
+    # if arguments.vim:
+    #     cve_checker.get_vim_data('Integer Overflow or Wraparound in GitHub '
+    #                              'repository vim/vim prior to 9.0.1532.'.lower())
+    #     exit(0)
     if arguments.nvr:
         nvr_data = cve_checker.print_nvrs(arguments.nvr)
         if nvr_data:
