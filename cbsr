@@ -11,6 +11,7 @@ import argparse
 import subprocess
 import redminelib
 from time import sleep
+from pathlib import Path
 import urllib.parse as parse
 from bs4 import BeautifulSoup
 from redminelib import Redmine
@@ -894,6 +895,9 @@ class CveChecker:
         else:
             print(f"No packages found for user: {user}")
 
+    def check_luntry_jsons(self, luntry_path: str):
+        pass
+
     @staticmethod
     def send_to_telegram(message: str) -> dict:
         """
@@ -1138,6 +1142,12 @@ def parse_args():
         default='',
         help="Вывести пакеты, которые назначаются на конкретного человека. Формат: ivan.ivanov"
     )
+    parser.add_argument(
+        '--check-luntry-jsons',
+        type=str,
+        default='',
+        help="Проверить папку с результатами работы сканера luntry"
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1203,6 +1213,9 @@ if __name__ == '__main__':
         exit(0)
     if arguments.show_pkgs_for_maintainer:
         cve_checker.show_pkgs_for_maintainer(arguments.show_pkgs_for_maintainer)
+        exit(0)
+    if arguments.check_luntry_jsons:
+        cve_checker.check_luntry_jsons(arguments.check_luntry_jsons)
         exit(0)
     print(80 * "=")
     if START_DATE:
