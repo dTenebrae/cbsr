@@ -218,7 +218,7 @@ class CveChecker:
         self.__prepare_dirs_and_paths()
 
     @staticmethod
-    def is_cve_exists_rest_api(cve: str) -> bool:
+    def is_cve_exists_rest_api(cve: str, return_link=False) -> (bool, []):
         """
         Костыльная проверка на существование CVE в трекере.
         Используется, пока не разберусь с оберткой redminelib
@@ -239,13 +239,21 @@ class CveChecker:
                             )
         # Найдем, сколько раз CVE встречается в поиске
         f_count = resp.find("results").get("total_count")
+        tracker_link_ids = []
         try:
             if int(f_count):
-                return bool(exact_search_re.findall(resp.find("description").text))
-            return False
+                # проверяем, если есть совпадение в описании
+                is_exist = bool(exact_search_re.findall(resp.find("description").text))
+                # или в названии темы
+                is_exist = is_exist or any([exact_search_re.findall(item.text)
+                                            for item in resp.find("results").find_all('title')])
+                if is_exist and return_link:
+                    tracker_link_ids = [item.text for item in resp.find('results').find_all('id')]
+                return is_exist, sorted(tracker_link_ids)
+            return False, tracker_link_ids
         except ValueError:
             print("Ошибка поиска")
-            return False
+            return False, tracker_link_ids
 
     @staticmethod
     def create_mozcve(url) -> dict:
@@ -551,7 +559,7 @@ class CveChecker:
             'cpe': self.get_cpe(cve),
         }
 
-    def get_one_cve(self, cve_id: str, check_patch=False) -> dict:
+    def get_one_cve(self, cve_id: str, check_patch=False, just_name=False) -> dict:
         """
         Номер в виде CVE-2023-1234 на входе, словарь с данными на выходе
         """
@@ -568,10 +576,19 @@ class CveChecker:
         desc = cve['cve']['descriptions'][0]['value'].lower()
         links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
+        name = 'unknown'
         for item in self.which_pkg(desc, links, self.get_cpe(cve)):
+            key, value = *item.keys(), *item.values()
+            if value == 'yes':
+                name = key
+            if just_name:
+                return item
             print(f"{item}")
 
-        return self.get_issue('unknown', cve, desc, links, check_patch=check_patch)
+        if just_name and name == 'unknown':
+            return {}
+
+        return self.get_issue(name, cve, desc, links, check_patch=check_patch)
 
     # TODO Дублирование кода и смысла с функцией check_cve. Переписать
     def which_pkg(self, desc, links, cve) -> list:
@@ -674,7 +691,7 @@ class CveChecker:
         moz_cves = self.get_mozilla_cves()
         for moz_advisories in moz_cves:
             for cve in moz_advisories['cves']:
-                if CHECK_REDMINE and not self.is_cve_exists_rest_api(cve['id']):
+                if CHECK_REDMINE and not self.is_cve_exists_rest_api(cve['id'])[0]:
                     cve_data_list.append(cve)
                     cve_id_list.append(cve['id'])
                     self.pkg_handler.pkgs_data[cve['name']]['cve_counter'] += 1
@@ -926,7 +943,7 @@ class CveChecker:
 
     def get_luntry_cve(self, luntry_path) -> list:
         vuln_list = []
-        for path, subdirs, files in os.walk(luntry_path):
+        for path, subdirs, files in os.walk(os.path.expanduser(luntry_path)):
             for name in files:
                 if name.endswith('.json'):
                     file_name = os.path.join(path, name)
@@ -941,12 +958,31 @@ class CveChecker:
 
     def check_luntry_jsons(self, luntry_path: str):
         luntry_cve_list = self.get_luntry_cve(luntry_path)
+        print(75 * "-")
+        print(f"Number of IDs: {len(luntry_cve_list)}")
+        print(75 * "-")
+        print()
         for item in luntry_cve_list:
             if item.split('-')[0] == 'GHSA':
                 print(f"{item} -> https://github.com/advisories/{item}")
+                print(75 * "-")
             elif item.split('-')[0] == 'CVE':
-                existence = self.is_cve_exists_rest_api(item)
-                print(f"{item} -> exists on tracker: {existence} -> https://nvd.nist.gov/vuln/detail/{item}")
+                existence, tracker_ids = self.is_cve_exists_rest_api(item, return_link=True)
+                print(f"ID:      {item}")
+                print(f"EXISTS:  {existence}")
+                # what_pkg = self.get_one_cve(item, just_name=True)
+                # if what_pkg:
+                #     key, value = *what_pkg.keys(), *what_pkg.values()
+                #     print(f"PKG:     {key}")
+                #     print(f"CERTAIN: {value}")
+
+                print(f"NIST:    https://nvd.nist.gov/vuln/detail/{item}")
+                if tracker_ids:
+                    print()
+                    print("TRACKER")
+                    for tracker_id in tracker_ids:
+                        print(f"         https://tracker.red-soft.ru/issues/{tracker_id}")
+                print(75 * "-")
             else:
                 continue
 
@@ -1235,7 +1271,8 @@ if __name__ == '__main__':
     if CVE:
         one_cve = cve_checker.get_one_cve(CVE, check_patch=True)
         if one_cve:
-            print(f"Package exists on tracker: {cve_checker.is_cve_exists_rest_api(CVE)}")
+            print(f"Package exists on tracker: "
+                  f"{cve_checker.is_cve_exists_rest_api(CVE, return_link=True)[0]}")
             print(80 * '-')
             print(cve_checker.get_issue_str(one_cve))
             exit(0)
