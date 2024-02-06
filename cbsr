@@ -832,14 +832,18 @@ class CveChecker:
         :param check_patch: флаг, что мы хотим проверять патчи. Пока только для ядра
         :return: возвращаем строку, список найденых патчей и удачных применений патчей
         """
-        issues = ""
+        issue_str = ""
+        issues_lst = []
         patches_found = 0
         successful_patches_list = []
 
         for single_cve in cve_list:
-            issues += self.get_issue_str(single_cve)
+            issue_str += self.get_issue_str(single_cve)
 
             if not single_cve.get('patch', "") and not check_patch:
+                if issue_str:
+                    issue_str += self.print_nvrs(pkg_name)
+                    issues_lst.append(issue_str)
                 continue
             patches_found += 1
             for i, patch in enumerate(single_cve['patch'], start=1):
@@ -848,31 +852,30 @@ class CveChecker:
                     f.write(patch['patch_text'])
                 # Пробуем применить патч к разным версиям ядра
                 if CHECK_PATCH:
-                    issues += f"Актуальность патча №{i}:\n\n"
+                    issue_str += f"Актуальность патча №{i}:\n\n"
 
                     for kern_path in set(self.kernel_paths):
                         current_ver = re.findall(r"linux-(\d\.\d+\.\d+)", kern_path)[0]
                         patching_result = self.apply_patches(kern_path, patch_path)
-                        issues += f"Для версии {current_ver}:\n"
+                        issue_str += f"Для версии {current_ver}:\n"
 
                         if patching_result == PatchResult.FAILED:
-                            issues += "* Не удалось применить\n\n"
+                            issue_str += "* Не удалось применить\n\n"
                         elif patching_result == PatchResult.ALREADY_APPLIED:
-                            issues += "* Уже применен\n\n"
+                            issue_str += "* Уже применен\n\n"
                         elif patching_result == PatchResult.NO_FILE:
-                            issues += "* Нет файла для применения\n\n"
+                            issue_str += "* Нет файла для применения\n\n"
                         elif patching_result == PatchResult.SUCCESS:
-                            issues += "* Применен успешно\n\n"
+                            issue_str += "* Применен успешно\n\n"
                             successful_patches_list.append((patch_path,
                                                             single_cve['id'],
                                                             current_ver))
 
-            issues += "---\n\n"
+            if issue_str:
+                issue_str += self.print_nvrs(pkg_name)
+                issues_lst.append(issue_str)
 
-        if issues:
-            issues += self.print_nvrs(pkg_name)
-
-        return issues, patches_found, successful_patches_list
+        return issues_lst, patches_found, successful_patches_list
 
     def print_nvrs(self, pkg_name: str) -> str:
         result = ''
@@ -1143,49 +1146,42 @@ class CveChecker:
         if check_patch:
             print(f"{pkg_name} patches found:     {patches_found}\n")
         if issues:
-            print(issues)
+            for item in issues:
+                print(item, "\n")
         if not (CREATE_AN_ISSUE and pkg_cves and self.redmine):
             return
         if not self.auto and not self.user_wants_create_issue():
             return
 
-        is_kernel = pkg_name == 'kernel'
-        if is_kernel:
-            subject = 'Множественные уязвимости в ядре Linux' \
-                if (len(pkg_cves) > 1) else 'Уязвимость в ядре Linux'
+        for i, issue in enumerate(issues):
+            subject = f'Уязвимость {pkg_name} {pkg_cves[i].get("id", "")}'
             issue_id = self.create_an_issue(subject=subject,
-                                            desc=issues,
+                                            desc=issue,
                                             assigned_id=assigned_id,
                                             watcher_ids=watcher_ids,
-                                            tag=pkg_name)
-            if successful_patches_list:
-                # чтобы итерироваться каждый раз по разным версиям, вместо общего счетчика
-                for ver in set(map(lambda x: x[2], successful_patches_list)):
-                    for i, item in enumerate(list(filter(lambda x: x[2] == ver, successful_patches_list)),
-                                             start=1):
-                        dest_patch = f"{DEST_PATCH_PATH}/patches-{item[2]}/" \
-                                     f"000{i}_kernel-lt-{item[2]}_{item[1]}_{issue_id}.patch"
-                        shutil.copyfile(item[0], dest_patch)
-                        print(f"Patch created: {dest_patch}")
-        else:
-            subject = f'Множественные уязвимости в {pkg_name}' \
-                if (len(pkg_cves) > 1) else f'Уязвимость в {pkg_name}'
-            issue_id = self.create_an_issue(subject=subject,
-                                            desc=issues,
-                                            assigned_id=assigned_id,
-                                            watcher_ids=watcher_ids
-                                            )
+                                            tag=pkg_name if pkg_name == 'kernel' else None)
 
-        print(f"Создана задача № {issue_id}")
-        issue_url = f"{REDMINE_URL}/issues/{issue_id}"
-        print(issue_url)
+            print(f"Создана задача № {issue_id}")
+            issue_url = f"{REDMINE_URL}/issues/{issue_id}"
+            print(issue_url)
 
-        if SEND_TO_TELEGRAM:
-            self.manual_check = list(map(lambda x: f"https://nvd.nist.gov/vuln/detail/{x}",
-                                         self.manual_check))
-            manual_check_str = '\n'.join(self.manual_check)
-            self.send_to_telegram(f"{subject}\nManual check:"
-                                  f" {manual_check_str}\nTracker URL: {issue_url}")
+            if SEND_TO_TELEGRAM:
+                # self.manual_check = list(map(lambda x: f"https://nvd.nist.gov/vuln/detail/{x}",
+                #                              self.manual_check))
+                # manual_check_str = '\n'.join(self.manual_check)
+                # self.send_to_telegram(f"{subject}\nManual check:"
+                #                       f" {manual_check_str}\nTracker URL: {issue_url}")
+                self.send_to_telegram(f"\nTracker URL: {issue_url}")
+
+        if successful_patches_list:
+            # чтобы итерироваться каждый раз по разным версиям, вместо общего счетчика
+            for ver in set(map(lambda x: x[2], successful_patches_list)):
+                for i, item in enumerate(list(filter(lambda x: x[2] == ver, successful_patches_list)),
+                                         start=1):
+                    dest_patch = f"{DEST_PATCH_PATH}/patches-{item[2]}/" \
+                                 f"000{i}_kernel-lt-{item[2]}_{item[1]}.patch"
+                    shutil.copyfile(item[0], dest_patch)
+                    print(f"Patch created: {dest_patch}")
 
     def run(self):
         """
