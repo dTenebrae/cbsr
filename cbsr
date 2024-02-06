@@ -769,6 +769,7 @@ class CveChecker:
     def create_an_issue(self,
                         subject,
                         desc: str,
+                        cve: str,
                         assigned_id=23,
                         watcher_ids=None,
                         tag=None,
@@ -782,8 +783,7 @@ class CveChecker:
         :param tag: тег
         :return: id задачи
         """
-        # if watcher_ids is None:
-        #     watcher_ids = [490]
+        # TODO обработать try:except
         issue = self.redmine.issue.create(
             project_id=297,  # 297 Уязвимости
             subject=subject,  # заголовок
@@ -796,6 +796,7 @@ class CveChecker:
             watcher_user_ids=watcher_ids,
             custom_fields=[{'id': 151, 'value': 'Все'},  # Конфигурация ОС: Все
                            {'id': 133, 'value': ['143', '144']},  # 143, 144 - Редакция: Сертифицированная, Стандартная
+                           {'id': 334, 'value': cve},  # номер уязвимости
                            ],
             tag_list=[
                 tag  # Метка: например kernel
@@ -1157,6 +1158,7 @@ class CveChecker:
             subject = f'Уязвимость {pkg_name} {pkg_cves[i].get("id", "")}'
             issue_id = self.create_an_issue(subject=subject,
                                             desc=issue,
+                                            cve=pkg_cves[i].get("id", ""),
                                             assigned_id=assigned_id,
                                             watcher_ids=watcher_ids,
                                             tag=pkg_name if pkg_name == 'kernel' else None)
