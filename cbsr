@@ -11,6 +11,7 @@ import argparse
 import subprocess
 import redminelib
 from time import sleep
+from collections import Counter
 import urllib.parse as parse
 from bs4 import BeautifulSoup
 from redminelib import Redmine
@@ -987,6 +988,96 @@ class CveChecker:
                 continue
 
     @staticmethod
+    def find_all_issues(n=50):
+        """
+        Сканируем трекер, собираем большинство уязвимостей и печатаем n популярных
+        """
+
+        def title_strip(title):
+            regex1 = re.compile(r"уязвимость в (.+)$", re.I)
+            regex2 = re.compile(r"уязвимости в (.+)$", re.I)
+            regex3 = re.compile(r"уязвимость: (.+)$", re.I)
+            title_reg = re.findall(regex1, title.text)
+            title_reg.extend(re.findall(regex2, title.text))
+            title_reg.extend(re.findall(regex3, title.text))
+            if title_reg:
+                return title_reg[0].strip().lower()
+
+        # ниже идут функции проверки на принадлежность к пакету
+        def kernel_str(str_to_check: str) -> str:
+            kw_list = [
+                'ядро linux',
+                'ядру linux',
+                'ядра linux',
+                'ядре linux',
+                'linux-ядра',
+            ]
+            for kw in kw_list:
+                if kw in str_to_check:
+                    return 'linux kernel'
+            return str_to_check
+
+        def firefox_str(str_to_check: str) -> str:
+            return 'firefox' if 'firefox' in str_to_check else str_to_check
+
+        def systemd_str(str_to_check: str) -> str:
+            return 'systemd' if 'systemd' in str_to_check else str_to_check
+
+        def nextcloud_str(str_to_check: str) -> str:
+            return 'nextcloud' if 'nextcloud' in str_to_check else str_to_check
+
+        def thunderbird_str(str_to_check: str) -> str:
+            return 'thunderbird' if 'thunderbird' in str_to_check else str_to_check
+
+        def curl_str(str_to_check: str) -> str:
+            kw_list = [
+                'curl',
+                'libcurl',
+            ]
+            for kw in kw_list:
+                if kw in str_to_check:
+                    return 'curl'
+            return str_to_check
+
+        # список из этих функций, чтобы было удобнее итерироваться
+        filter_funcs = [
+            kernel_str,
+            firefox_str,
+            systemd_str,
+            nextcloud_str,
+            thunderbird_str,
+            curl_str,
+        ]
+
+        limit = 100
+        # для того, чтобы пройти все страницы с найденными темами потребуется счетчик для оффсета
+        cnt = 0
+        result = []
+        while True:
+            url = f"{REDMINE_URL}/projects/cve/search.xml?&issues=1&" \
+                  f"limit={limit}&offset={cnt}&titles_only=1&q=уязвимост"
+            resp = get_response(url,
+                                bs=True,
+                                parser='xml',
+                                headers=HEADERS,
+                                auth=(credentials['REDMINE_USER'],
+                                      credentials['REDMINE_PASSWORD']),
+                                verify=False
+                                )
+            titles = resp.find_all("title")
+            t_count = len(titles)
+            result.extend(list(map(title_strip, titles)))
+            result = list(filter(lambda x: x is not None, result))
+            for func in filter_funcs:
+                result = list(map(func, result))
+            cnt += limit
+            if t_count < limit:
+                break
+
+        for item in Counter(result).most_common(n):
+            print(f"{item[0]:<20} {item[1]:>5}")
+
+    @staticmethod
     def send_to_telegram(message: str) -> dict:
         """
         Послать строку в телеграм
@@ -1236,6 +1327,11 @@ def parse_args():
         default='',
         help="Проверить папку с результатами работы сканера luntry"
     )
+    parser.add_argument(
+        '--stat',
+        action='store_true',
+        help="Статистика по уязвимостям на трекере"
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1246,6 +1342,7 @@ def parse_args():
     parser.set_defaults(moz=False)
     parser.set_defaults(zero=False)
     parser.set_defaults(vim=False)
+    parser.set_defaults(stat=False)
     parser.set_defaults(current_parsers=False)
     parser.set_defaults(show_maintainers=False)
     return parser.parse_args()
@@ -1257,6 +1354,7 @@ if __name__ == '__main__':
     SEND_TO_TELEGRAM = arguments.send
     CHECK_REDMINE = arguments.exists
     CHECK_PATCH = arguments.patch_check
+    STAT = arguments.stat
     CREATE_AN_ISSUE = arguments.tracker and CHECK_REDMINE
     AUTO = arguments.auto
     CVE = arguments.cve
@@ -1279,6 +1377,9 @@ if __name__ == '__main__':
         else:
             print("CVE not found")
             exit(0)
+    if STAT:
+        cve_checker.find_all_issues()
+        exit(0)
     if arguments.zero:
         cve_checker.get_zero_cves()
         exit(0)
