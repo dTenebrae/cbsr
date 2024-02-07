@@ -778,31 +778,37 @@ class CveChecker:
         Создает тему на трекере.
         :param subject: Тема задачи
         :param desc: Описание
+        :param cve: Номер уязвимости для
+        заполнения соответствующего поля
         :param assigned_id: кому назначена
         :param watcher_ids: Кто наблюдатель
         :param tag: тег
         :return: id задачи
         """
-        # TODO обработать try:except
-        issue = self.redmine.issue.create(
-            project_id=297,  # 297 Уязвимости
-            subject=subject,  # заголовок
-            tracker_id=10,  # 10 - класс "Задача"
-            description=desc,  # тело задачи
-            status_id=1,  # 1 - новая
-            fixed_version_id=146,  # 146 - Версия: РЕД ОС - РЕД ОС 7.3
-            priority_id=1,  # 1 - нормальный приоритет
-            assigned_to_id=assigned_id,
-            watcher_user_ids=watcher_ids,
-            custom_fields=[{'id': 151, 'value': 'Все'},  # Конфигурация ОС: Все
-                           {'id': 133, 'value': ['143', '144']},  # 143, 144 - Редакция: Сертифицированная, Стандартная
-                           {'id': 334, 'value': cve},  # номер уязвимости
-                           ],
-            tag_list=[
-                tag  # Метка: например kernel
-            ],
-        )
-        return issue.id
+        try:
+            issue = self.redmine.issue.create(
+                project_id=297,  # 297 Уязвимости
+                subject=subject,  # заголовок
+                tracker_id=10,  # 10 - класс "Задача"
+                description=desc,  # тело задачи
+                status_id=1,  # 1 - новая
+                fixed_version_id=146,  # 146 - Версия: РЕД ОС - РЕД ОС 7.3
+                priority_id=1,  # 1 - нормальный приоритет
+                assigned_to_id=assigned_id,
+                watcher_user_ids=watcher_ids,
+                custom_fields=[{'id': 151, 'value': 'Все'},  # Конфигурация ОС: Все
+                               {'id': 133, 'value': ['143', '144']},
+                               # 143, 144 - Редакция: Сертифицированная, Стандартная
+                               {'id': 334, 'value': cve},  # номер уязвимости
+                               ],
+                tag_list=[
+                    tag  # Метка: например kernel
+                ],
+            )
+            return issue.id
+        except redminelib.exceptions.ValidationError as err:
+            print(f"Can't create an issue: {err}")
+            exit(1)
 
     @staticmethod
     def apply_patches(src_path, patch_path) -> PatchResult:
@@ -833,7 +839,6 @@ class CveChecker:
         :param check_patch: флаг, что мы хотим проверять патчи. Пока только для ядра
         :return: возвращаем строку, список найденых патчей и удачных применений патчей
         """
-        issue_str = ""
         issues_lst = []
         patches_found = 0
         successful_patches_list = []
