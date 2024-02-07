@@ -1174,7 +1174,7 @@ class CveChecker:
                 # manual_check_str = '\n'.join(self.manual_check)
                 # self.send_to_telegram(f"{subject}\nManual check:"
                 #                       f" {manual_check_str}\nTracker URL: {issue_url}")
-                self.send_to_telegram(f"\nTracker URL: {issue_url}")
+                self.send_to_telegram(f"\nSubject: {subject}\nTracker URL: {issue_url}")
 
         if successful_patches_list:
             # чтобы итерироваться каждый раз по разным версиям, вместо общего счетчика
