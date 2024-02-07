@@ -9,6 +9,7 @@ NIST_KEY='nist-api-key'
 VULNERS_KEY='vulners-api-key' --ignored for now
 TELEGRAM_GROUP_ID='chat-or-group-id'
 BOT_TOKEN='bot-token'
+GITHUB_TOKEN='token for access to github api'
 REPO_PATH='physical path to packages'
 REDMINE_URL='tracker url'
 KOJI7_URL='local address for stapel7'

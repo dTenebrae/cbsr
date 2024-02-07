@@ -557,7 +557,7 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vadim.karyaev']),
                 'watchers': None,
             },
-            'Moby': {
+            'Docker': {
                 'check_func': self.is_moby_issue,
                 'cve_counter': 0,
                 'stapel_name': 'docker-ce',
@@ -587,7 +587,7 @@ class PkgHandler:
                 'assigned_to': choice([int(self.users_dict['vitaly.peshcherov']),
                                        int(self.users_dict['vladislav.mitin']),
                                        int(self.users_dict['ilia.polyvyanyy']),
-                                       int(self.users_dict['alexey.rodionov'])]),
+                                       ]),
                 'watchers': None,
             },
             'Avahi': {
@@ -1936,7 +1936,7 @@ class PkgHandler:
             if len(path_split) > 2:
                 if netloc == 'github.com' and \
                         (path_split[1] == 'moby' and path_split[2] == 'moby'):
-                    return IsXIssue.MAYBE
+                    return IsXIssue.YES
 
         return IsXIssue.MAYBE
 
