@@ -839,6 +839,7 @@ class CveChecker:
         successful_patches_list = []
 
         for single_cve in cve_list:
+            issue_str = ""
             issue_str += self.get_issue_str(single_cve)
 
             if not single_cve.get('patch', "") and not check_patch:
