@@ -419,21 +419,6 @@ class CveChecker:
         result = list(set(result))
         return result
 
-    # def get_rpm_path(self, rpm_name, tag_name):
-    #     """
-    #     Возвращает путь до физического расположения пакета на стапеле
-    #     :param tag_name: тег, в котором ищем пакет
-    #     :param rpm_name: Имя пакета
-    #     :return: Путь до файла в случае успеха, None в противном случае
-    #     """
-    #     package = self.pkg_handler.get_latest_rpm_data(rpm_name, tag_name)
-    #     if not package:
-    #         return
-    #
-    #     src_path = f"{REPO_PATH}/{package['name']}/{package['version']}/{package['release']}" \
-    #                f"/src/{package['nvr']}.src.rpm"
-    #     return src_path
-
     @staticmethod
     def get_kern_patches(url: str) -> dict:
         """
@@ -475,42 +460,6 @@ class CveChecker:
         with open(dest_path, "wb") as f:
             for chunk in req.iter_content(100000):
                 f.write(chunk)
-
-        # Распаковываем в папку и удаляем архив
-        # unpack_cmd = f"tar xf {kernel_src_filename} -C {KERNEL_PATH}"
-        # rm_cmd = f"rm -f {kernel_src_filename}"
-        # self.exec_bash(unpack_cmd)
-        # self.exec_bash(rm_cmd)
-
-    # def get_vim_data(self, desc):
-    #     """
-    #     Функция получения версии уязвимого вима и запуска пересборки нового, если доступно.
-    #     Пока заготовка
-    #     :param desc: Описание узявимости
-    #     :return:
-    #     """
-    #
-    #     vim_ver_re = re.compile(r"\d\.\d\.\d+")
-    #     vuln_ver = re.findall(vim_ver_re, desc)[0]
-    #     vim_resp = get_response("https://github.com/vim/vim/tags", bs=False)
-    #     vim_source_latest = re.findall(r"archive/refs/tags/[^/]+\.tar\.gz", vim_resp.text)[0]
-    #     latest_vim_ver = re.findall(vim_ver_re, vim_source_latest)[0]
-    #
-    #     vim_latest_src_url = f"https://github.com/vim/vim/{vim_source_latest}"
-    #
-    #     vim_srcrpm_urls = []
-    #
-    #     for tag in self.pkg_handler.tags:
-    #         vim_data = self.pkg_handler.get_latest_rpm_data("vim", tag)
-    #         vim_srcrpm_urls.append(f"'http://stapel.red-soft.ru/kojifiles/packages/{vim_data['name']}"
-    #                                f"/{vim_data['version']}/{vim_data['release']}/src/{vim_data['nvr']}.src.rpm")
-    #
-    #     if compare_versions(vuln_ver, latest_vim_ver):
-    #         return
-    #
-    #     # if parse_version(self.vim_73) > parse_version(vuln_ver):
-    #     # TODO выведем сообщение что у нас версия vim не подверженая уязвимости
-    #     # return
 
     @staticmethod
     def get_cpe(cve):
@@ -1387,10 +1336,6 @@ if __name__ == '__main__':
     if arguments.zero:
         cve_checker.get_zero_cves()
         exit(0)
-    # if arguments.vim:
-    #     cve_checker.get_vim_data('Integer Overflow or Wraparound in GitHub '
-    #                              'repository vim/vim prior to 9.0.1532.'.lower())
-    #     exit(0)
     if arguments.nvr:
         nvr_data = cve_checker.print_nvrs(arguments.nvr)
         if nvr_data:
