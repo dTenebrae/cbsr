@@ -224,7 +224,7 @@ class CveChecker:
         Костыльная проверка на существование CVE в трекере.
         Используется, пока не разберусь с оберткой redminelib
         """
-        url = f"{REDMINE_URL}/projects/cve/search.xml?&issues=1&q={cve}"
+        url = f"{REDMINE_URL}/projects/cve/search.xml?&scope=subprojects&issues=1&q={cve}"
         # Так как редмайн ищет все вхождения подстроки, мы можем
         # проигнорировать CVE сами того не желая.
         # Например: CVE-2023-1281 при наличии на трекере CVE-2023-12811
