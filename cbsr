@@ -736,7 +736,7 @@ class CveChecker:
         """
         try:
             issue = self.redmine.issue.create(
-                project_id=297,  # 297 Уязвимости
+                project_id=787,  # 297 Уязвимости, 787 - подпроект kernel
                 subject=subject,  # заголовок
                 tracker_id=10,  # 10 - класс "Задача"
                 description=desc,  # тело задачи
