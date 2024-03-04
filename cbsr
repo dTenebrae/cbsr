@@ -475,21 +475,22 @@ class CveChecker:
             cpe = (criteria, vuln_ver)
         return cpe
 
-    def get_issue(self, name, cve, desc, links, check_patch=True) -> dict:
+    def get_issue(self, name, cve, desc, links, patch_links, check_patch=True) -> dict:
         """
         Разбираем nist json на нужный нам словарь
         :param name: имя пакета, по которому мы потом будем сортировать уязвимости
         :param cve: json с уязвимостью
         :param desc: вытащеное из него описание
         :param links: обработаные URL'ы
+        :param patch_links список кортежей из ссылки на явно указанный патч и хэша коммита
         :param check_patch: Будем вытаскивать патчи. Работает для ядра
         :return: словарь с разобраным добром
         """
         patch, scores = [], {}
 
         if check_patch:
-            for link in links:
-                patch_resp = self.get_kern_patches(link)
+            for link in patch_links:
+                patch_resp = self.get_kern_patches(link[0])
                 if patch_resp:
                     patch.append(patch_resp)
 
@@ -510,6 +511,42 @@ class CveChecker:
             'cpe': self.get_cpe(cve),
         }
 
+    def update_issue(self):
+        """
+        Изменяем значения полей задачи
+        """
+        # self.redmine.issue.update(project_id=297, resource_id='167173',
+        # custom_fields=[{'id': 334, 'value': 'CVE-2023-6228'}])
+        pass
+
+    @staticmethod
+    def get_hash(url: str) -> str:
+        """
+        Получить хэш коммита из стандартного url'a
+        """
+        splitted_url = url.split('/')
+        return splitted_url[-1] if splitted_url[-2] == 'commit' else ''
+
+    def get_mult_cve_status(self, query_id):
+        project = self.redmine.issue.filter(query_id=query_id,
+                                            project_id=297)
+        search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
+        max_len = len(project)
+        mult_counter = 0
+        for issue in project:
+            test_str = issue.subject + ' ' + issue.description
+            unique_cve = set(search_re.findall(test_str.lower()))
+            print(issue.subject, end='; ')
+            print(f"https://tracker.red-soft.ru/issues/{issue.id}", end='; ')
+            print(issue.status.name, end='; ')
+            print(len(unique_cve))
+            if len(unique_cve) > 1:
+                mult_counter += 1
+
+        print(f"Общее количество задач: {max_len}\n"
+              f"Из них множественных: {mult_counter}\n"
+              f"Процент: {mult_counter * 100 / max_len}")
+
     def get_one_cve(self, cve_id: str, check_patch=False, just_name=False) -> dict:
         """
         Номер в виде CVE-2023-1234 на входе, словарь с данными на выходе
@@ -527,6 +564,9 @@ class CveChecker:
         desc = cve['cve']['descriptions'][0]['value'].lower()
         links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
+        patch_links = [(link['url'], self.get_hash(link['url'])) for link in cve['cve']['references']
+                       if 'patch' in map(str.lower, link['tags'])]
+
         name = 'unknown'
         for item in self.which_pkg(desc, links, self.get_cpe(cve)):
             key, value = *item.keys(), *item.values()
@@ -539,7 +579,7 @@ class CveChecker:
         if just_name and name == 'unknown':
             return {}
 
-        return self.get_issue(name, cve, desc, links, check_patch=check_patch)
+        return self.get_issue(name, cve, desc, links, patch_links, check_patch=check_patch)
 
     # TODO Дублирование кода и смысла с функцией check_cve. Переписать
     def which_pkg(self, desc, links, cve) -> list:
@@ -1281,6 +1321,11 @@ def parse_args():
         action='store_true',
         help="Статистика по уязвимостям на трекере"
     )
+    parser.add_argument(
+        '--print-cves',
+        type=int,
+        help="Вывести все задачи по заданному query"
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1293,6 +1338,7 @@ def parse_args():
     parser.set_defaults(stat=False)
     parser.set_defaults(current_parsers=False)
     parser.set_defaults(show_maintainers=False)
+    parser.set_defaults(print_cves=False)
     return parser.parse_args()
 
 
@@ -1330,6 +1376,9 @@ if __name__ == '__main__':
         exit(0)
     if arguments.zero:
         cve_checker.get_zero_cves()
+        exit(0)
+    if arguments.print_cves:
+        cve_checker.get_mult_cve_status(arguments.print_cves)
         exit(0)
     if arguments.nvr:
         nvr_data = cve_checker.print_nvrs(arguments.nvr)
