@@ -30,6 +30,7 @@ credentials = dotenv_values(f"{ENV_PATH}/.env")
 
 # ############################ КОНСТАНТЫ #############################
 NUMBER_OF_RECON = 5
+SAVE_PATCHES = False  # Сохранять успешно примененные патчи на диск или нет
 
 REPO_PATH = credentials['REPO_PATH']
 REDMINE_URL = credentials['REDMINE_URL']
@@ -1130,7 +1131,7 @@ class CveChecker:
                 #                       f" {manual_check_str}\nTracker URL: {issue_url}")
                 self.send_to_telegram(f"\nSubject: {subject}\nTracker URL: {issue_url}")
 
-        if successful_patches_list:
+        if successful_patches_list and SAVE_PATCHES:
             # чтобы итерироваться каждый раз по разным версиям, вместо общего счетчика
             for ver in set(map(lambda x: x[2], successful_patches_list)):
                 for i, item in enumerate(list(filter(lambda x: x[2] == ver, successful_patches_list)),
@@ -1241,11 +1242,6 @@ def parse_args():
         action='store_true',
         help="тестовый флаг для зеродэй парсинга"
     )
-    # parser.add_argument(
-    #     '--vim',
-    #     action='store_true',
-    #     help="тестовый флаг для обработки вима"
-    # )
     parser.add_argument(
         '--nvr',
         type=str,
@@ -1294,7 +1290,6 @@ def parse_args():
     parser.set_defaults(users=False)
     parser.set_defaults(moz=False)
     parser.set_defaults(zero=False)
-    parser.set_defaults(vim=False)
     parser.set_defaults(stat=False)
     parser.set_defaults(current_parsers=False)
     parser.set_defaults(show_maintainers=False)
