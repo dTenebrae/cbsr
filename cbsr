@@ -1429,7 +1429,8 @@ if __name__ == '__main__':
     CVE = arguments.cve
     USERS = arguments.users
     START_DATE = arguments.start_date
-    UPDATE_ARGS = flatten_chain(arguments.update_cve_field)
+    if arguments.update_cve_field:
+        UPDATE_ARGS = flatten_chain(arguments.update_cve_field)
 
     if USERS:
         get_users_list()
@@ -1456,7 +1457,7 @@ if __name__ == '__main__':
     if arguments.cve_to_csv:
         cve_checker.save_cve_to_csv(arguments.cve_to_csv)
         exit(0)
-    if UPDATE_ARGS:
+    if arguments.update_cve_field:
         if len(UPDATE_ARGS) == 2:
             cve_checker.update_cve_field(query_id=UPDATE_ARGS[0],
                                          project_id=UPDATE_ARGS[1])
