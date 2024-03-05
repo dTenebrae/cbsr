@@ -2,6 +2,7 @@
 
 import re
 import os
+import csv
 import json
 import shutil
 import urllib3
@@ -44,6 +45,7 @@ NIST_END = "pubEndDate"
 KERNEL_PATH = f"{os.path.expanduser('.')}/src"
 TMP_PATCHES_PATH = f"{os.getcwd()}/output/tmp-patches"
 DEST_PATCH_PATH = f"{os.getcwd()}/output/patches"
+CSV_PATH = f"{os.getcwd()}/output/csv"
 
 TMP_SRPM_PATH = f"{os.getcwd()}/output/srpms"
 
@@ -59,6 +61,29 @@ HEADERS = {
 
 
 # ######################################################################
+# Print iterations progress
+# https://stackoverflow.com/questions/3173320/text-progress-bar-in-terminal-with-block-characters
+def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█', print_end="\r"):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+        print_end   - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filled_length = int(length * iteration // total)
+    bar = fill * filled_length + '-' * (length - filled_length)
+    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end=print_end)
+    # Print New Line on Complete
+    if iteration == total:
+        print()
+
 
 def get_response(*args, bs=True, parser='lxml', **kwargs):
     """
@@ -199,7 +224,7 @@ class CveChecker:
                 print(f"Downloading sources for linux kernel: {kern_path}")
                 self.download_kernel_src(re.findall(self.ver_re, kern_path)[0])
 
-        for path in [TMP_PATCHES_PATH, TMP_SRPM_PATH]:
+        for path in [TMP_PATCHES_PATH, TMP_SRPM_PATH, CSV_PATH]:
             if os.path.exists(path):
                 shutil.rmtree(path, ignore_errors=False, onerror=None)
             os.makedirs(path)
@@ -528,26 +553,39 @@ class CveChecker:
         splitted_url = url.split('/')
         return splitted_url[-1] if splitted_url[-2] == 'commit' else ''
 
-    def get_mult_cve_status(self, query_id):
+    def save_cve_to_csv(self, query_id):
         project = self.redmine.issue.filter(query_id=query_id,
                                             project_id=297)
         search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
-        mult_counter = 0
-        for issue in project:
+        csv_header = [
+            "Тема",
+            "URL",
+            "Статус",
+            "Количество CVE",
+            "Поле CVE"
+        ]
+        csv_data = []
+
+        print_progress_bar(0, len(project), prefix='Progress:', suffix='', length=50)
+
+        for i, issue in enumerate(project):
             test_str = issue.subject + ' ' + issue.description
             unique_cve = set(search_re.findall(test_str.lower()))
-            print(issue.subject, end='; ')
-            print(f"https://tracker.red-soft.ru/issues/{issue.id}", end='; ')
-            print(issue.status.name, end='; ')
-            print(len(unique_cve), end='; ')
-            print(issue.custom_fields.get(334).value)
-            if len(unique_cve) > 1:
-                mult_counter += 1
+            csv_data.append([
+                issue.subject,
+                f"https://tracker.red-soft.ru/issues/{issue.id}",
+                issue.status.name,
+                len(unique_cve),
+                issue.custom_fields.get(334).value
+            ])
+            print_progress_bar(i, len(project), prefix='Progress:', suffix='', length=50)
 
-        # max_len = len(project)
-        # print(f"Общее количество задач: {max_len}\n"
-        #       f"Из них множественных: {mult_counter}\n"
-        #       f"Процент: {mult_counter * 100 / max_len}")
+        with open(f"{CSV_PATH}/query-{query_id}.csv", 'w', encoding='UTF8', newline='') as f:
+            writer = csv.writer(f, delimiter=';')
+            writer.writerow(csv_header)
+            writer.writerows(csv_data)
+
+        print(f"{CSV_PATH}/query-{query_id}.csv was written")
 
     def get_one_cve(self, cve_id: str, check_patch=False, just_name=False) -> dict:
         """
@@ -1330,9 +1368,9 @@ def parse_args():
         help="Статистика по уязвимостям на трекере"
     )
     parser.add_argument(
-        '--print-cves',
+        '--cve-to-csv',
         type=int,
-        help="Вывести все задачи по заданному query"
+        help="Сохранить отчет по заданному query в csv"
     )
 
     parser.set_defaults(exists=True)
@@ -1346,7 +1384,7 @@ def parse_args():
     parser.set_defaults(stat=False)
     parser.set_defaults(current_parsers=False)
     parser.set_defaults(show_maintainers=False)
-    parser.set_defaults(print_cves=False)
+    parser.set_defaults(cve_to_csv=False)
     return parser.parse_args()
 
 
@@ -1385,8 +1423,8 @@ if __name__ == '__main__':
     if arguments.zero:
         cve_checker.get_zero_cves()
         exit(0)
-    if arguments.print_cves:
-        cve_checker.get_mult_cve_status(arguments.print_cves)
+    if arguments.cve_to_csv:
+        cve_checker.save_cve_to_csv(arguments.cve_to_csv)
         exit(0)
     if arguments.nvr:
         nvr_data = cve_checker.print_nvrs(arguments.nvr)
