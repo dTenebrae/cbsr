@@ -532,7 +532,6 @@ class CveChecker:
         project = self.redmine.issue.filter(query_id=query_id,
                                             project_id=297)
         search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
-        max_len = len(project)
         mult_counter = 0
         for issue in project:
             test_str = issue.subject + ' ' + issue.description
@@ -540,13 +539,15 @@ class CveChecker:
             print(issue.subject, end='; ')
             print(f"https://tracker.red-soft.ru/issues/{issue.id}", end='; ')
             print(issue.status.name, end='; ')
-            print(len(unique_cve))
+            print(len(unique_cve), end='; ')
+            print(issue.custom_fields.get(334).value)
             if len(unique_cve) > 1:
                 mult_counter += 1
 
-        print(f"Общее количество задач: {max_len}\n"
-              f"Из них множественных: {mult_counter}\n"
-              f"Процент: {mult_counter * 100 / max_len}")
+        # max_len = len(project)
+        # print(f"Общее количество задач: {max_len}\n"
+        #       f"Из них множественных: {mult_counter}\n"
+        #       f"Процент: {mult_counter * 100 / max_len}")
 
     def get_one_cve(self, cve_id: str, check_patch=False, just_name=False) -> dict:
         """
