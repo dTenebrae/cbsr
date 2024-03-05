@@ -1400,7 +1400,7 @@ def parse_args():
         type=int,
         action='append',
         nargs='+',
-        help="Для задач, у которых пустое поле CVE - заполняем его. Требует номер query и номер проекта"
+        help="Обновить поле CVE на основе темы и описания. Требует номер query и номер проекта"
     )
 
     parser.set_defaults(exists=True)
