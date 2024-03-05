@@ -16,6 +16,7 @@ import urllib.parse as parse
 from bs4 import BeautifulSoup
 from redminelib import Redmine
 from collections import Counter
+from itertools import chain
 from dotenv import dotenv_values
 from urllib.parse import urljoin
 from datetime import timedelta, date, datetime
@@ -83,6 +84,10 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
     # Print New Line on Complete
     if iteration == total:
         print()
+
+
+def flatten_chain(matrix):
+    return list(chain.from_iterable(matrix))
 
 
 def get_response(*args, bs=True, parser='lxml', **kwargs):
@@ -174,6 +179,14 @@ class CveChecker:
                               stdout=subprocess.PIPE,
                               stderr=subprocess.DEVNULL)
         return ps.communicate()[0].decode('utf-8')
+
+    @staticmethod
+    def get_hash(url: str) -> str:
+        """
+        Получить хэш коммита из стандартного url'a
+        """
+        splitted_url = url.split('/')
+        return splitted_url[-1] if splitted_url[-2] == 'commit' else ''
 
     @staticmethod
     def grep_cve(text) -> list:
@@ -537,21 +550,27 @@ class CveChecker:
             'cpe': self.get_cpe(cve),
         }
 
-    def update_issue(self):
+    def update_cve_field(self, query_id=None, project_id=None):
         """
-        Изменяем значения полей задачи
+        Изменяем значения поля cve, в случае если в заголовке или теле задачи есть CVE.
+        номер query: 2131 - уязвимости без ядра, 2134 - уязвимости ядра включая закрытые.
         """
-        # self.redmine.issue.update(project_id=297, resource_id='167173',
-        # custom_fields=[{'id': 334, 'value': 'CVE-2023-6228'}])
-        pass
+        project = self.redmine.issue.filter(query_id=query_id,
+                                            project_id=project_id)
 
-    @staticmethod
-    def get_hash(url: str) -> str:
-        """
-        Получить хэш коммита из стандартного url'a
-        """
-        splitted_url = url.split('/')
-        return splitted_url[-1] if splitted_url[-2] == 'commit' else ''
+        search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
+        print_progress_bar(0, len(project), prefix='Progress:', suffix='', length=50)
+        for i, issue in enumerate(project):
+            test_str = issue.subject + ' ' + issue.description
+            unique_cve = set(search_re.findall(test_str.lower()))
+            if unique_cve:
+                self.redmine.issue.update(project_id=project_id,
+                                          resource_id=issue.id,
+                                          custom_fields=[{
+                                              'id': 334,
+                                              'value': " ".join(map(str.upper, unique_cve))
+                                          }])
+            print_progress_bar(i, len(project), prefix='Progress:', suffix='', length=50)
 
     def save_cve_to_csv(self, query_id):
         project = self.redmine.issue.filter(query_id=query_id,
@@ -585,6 +604,7 @@ class CveChecker:
             writer.writerow(csv_header)
             writer.writerows(csv_data)
 
+        print()
         print(f"{CSV_PATH}/query-{query_id}.csv was written")
 
     def get_one_cve(self, cve_id: str, check_patch=False, just_name=False) -> dict:
@@ -804,6 +824,7 @@ class CveChecker:
 
     def create_an_issue(self,
                         subject,
+                        project_id,
                         desc: str,
                         cve: str,
                         assigned_id=23,
@@ -813,6 +834,7 @@ class CveChecker:
         """
         Создает тему на трекере.
         :param subject: Тема задачи
+        :param project_id: Номер проекта, в котором создаем задачу
         :param desc: Описание
         :param cve: Номер уязвимости для
         заполнения соответствующего поля
@@ -823,7 +845,7 @@ class CveChecker:
         """
         try:
             issue = self.redmine.issue.create(
-                project_id=787,  # 297 Уязвимости, 787 - подпроект kernel
+                project_id=project_id,  # 297 Уязвимости, 787 - подпроект kernel
                 subject=subject,  # заголовок
                 tracker_id=10,  # 10 - класс "Задача"
                 description=desc,  # тело задачи
@@ -1200,6 +1222,7 @@ class CveChecker:
             subject = f'Уязвимость {pkg_name} {pkg_cves[i].get("id", "")}'
             issue_id = self.create_an_issue(subject=subject,
                                             desc=issue,
+                                            project_id=787 if pkg_name == 'kernel' else 297,
                                             cve=pkg_cves[i].get("id", ""),
                                             assigned_id=assigned_id,
                                             watcher_ids=watcher_ids,
@@ -1372,6 +1395,13 @@ def parse_args():
         type=int,
         help="Сохранить отчет по заданному query в csv"
     )
+    parser.add_argument(
+        '--update-cve-field',
+        type=int,
+        action='append',
+        nargs='+',
+        help="Для задач, у которых пустое поле CVE - заполняем его. Требует номер query и номер проекта"
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1384,7 +1414,6 @@ def parse_args():
     parser.set_defaults(stat=False)
     parser.set_defaults(current_parsers=False)
     parser.set_defaults(show_maintainers=False)
-    parser.set_defaults(cve_to_csv=False)
     return parser.parse_args()
 
 
@@ -1400,6 +1429,7 @@ if __name__ == '__main__':
     CVE = arguments.cve
     USERS = arguments.users
     START_DATE = arguments.start_date
+    UPDATE_ARGS = flatten_chain(arguments.update_cve_field)
 
     if USERS:
         get_users_list()
@@ -1425,6 +1455,16 @@ if __name__ == '__main__':
         exit(0)
     if arguments.cve_to_csv:
         cve_checker.save_cve_to_csv(arguments.cve_to_csv)
+        exit(0)
+    if UPDATE_ARGS:
+        if len(UPDATE_ARGS) == 2:
+            cve_checker.update_cve_field(query_id=UPDATE_ARGS[0],
+                                         project_id=UPDATE_ARGS[1])
+        elif len(UPDATE_ARGS) == 1:
+            cve_checker.update_cve_field(project_id=UPDATE_ARGS[0])
+        else:
+            print("Wrong arguments number")
+            exit(1)
         exit(0)
     if arguments.nvr:
         nvr_data = cve_checker.print_nvrs(arguments.nvr)
