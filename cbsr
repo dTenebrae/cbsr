@@ -506,6 +506,7 @@ class CveChecker:
             'lastModified': cve['cve']['lastModified'],
             'status': cve['cve']['vulnStatus'],
             'links': links,
+            'patch_links': patch_links,
             'scores': scores,
             'patch': patch,
             'cpe': self.get_cpe(cve),
@@ -599,6 +600,7 @@ class CveChecker:
                   cve,
                   desc,
                   links,
+                  patch_links,
                   cve_data_list,
                   cve_id_list,
                   cve_count,
@@ -611,6 +613,7 @@ class CveChecker:
         :param cve: Словарь с данными по уязвимости
         :param desc: слегка обработанное описание уязвимости
         :param links: обработанные (в случае ядра) ссылки предоставленные nist'om
+        :param patch_links: кортежи (ссылка, хэш)
         :param cve_data_list: общий список данных по отфильтрованным уязвимостям
         :param cve_id_list: общий список id отфильтрованных уязвимостей
         :param cve_count: счетчик релевантных уязвимостей
@@ -626,7 +629,7 @@ class CveChecker:
             if CHECK_REDMINE and self.is_cve_exists_rest_api(cve['cve']['id'])[0]:
                 exists_count += 1
                 return cve_count, exists_count
-            cve_data_list.append(self.get_issue(pkg_name, cve, desc, links))
+            cve_data_list.append(self.get_issue(pkg_name, cve, desc, links, patch_links))
             return cve_count, exists_count
 
         elif is_pkg == IsXIssue.MAYBE:
@@ -666,6 +669,9 @@ class CveChecker:
             desc = cve['cve']['descriptions'][0]['value'].lower()
             links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
+            patch_links = [(link['url'], self.get_hash(link['url'])) for link in cve['cve']['references']
+                           if (link.get('tags', "") and 'patch' in map(str.lower, link['tags']))]
+
             for pkg_name, pkg_data in self.pkg_handler.pkgs_data.items():
                 if cve['cve']['id'] in cve_id_list:
                     continue
@@ -674,6 +680,7 @@ class CveChecker:
                                                                        cve,
                                                                        desc,
                                                                        links,
+                                                                       patch_links,
                                                                        cve_data_list,
                                                                        cve_id_list,
                                                                        pkg_data['cve_counter'],
