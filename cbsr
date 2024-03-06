@@ -617,7 +617,7 @@ class CveChecker:
         print_progress_bar(0, len(project), prefix='Progress:', suffix='', length=50)
         for i, issue in enumerate(project):
             print_progress_bar(i, len(project), prefix='Progress:', suffix='', length=50)
-            if issue.status.id != 1 and not search_issue_re.findall(issue.description):
+            if issue.status.id != 1 or not search_issue_re.findall(issue.description):
                 continue
             matches = re.finditer(hash_regex, issue.description, re.MULTILINE)
 
