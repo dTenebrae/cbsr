@@ -43,6 +43,7 @@ NIST_REJ = "noRejected"
 NIST_START = "pubStartDate"
 NIST_END = "pubEndDate"
 
+KERNEL_GIT_PATH = f"{os.path.expanduser('~')}/devel/kernel/src/linux"
 KERNEL_PATH = f"{os.path.expanduser('.')}/src"
 TMP_PATCHES_PATH = f"{os.getcwd()}/output/tmp-patches"
 DEST_PATCH_PATH = f"{os.getcwd()}/output/patches"
@@ -606,6 +607,43 @@ class CveChecker:
 
         print()
         print(f"{CSV_PATH}/query-{query_id}.csv was written")
+
+    def update_resolved_kernel_issues(self):
+        search_issue_re = re.compile(r"following vulnerability has been resolved", re.I)
+        hash_regex = r"^\\*\S.+commit/(\S+)"
+        kern_ver_re = re.compile(r"^((5\.15)|(6\.[16]))\.")
+
+        project = self.redmine.issue.filter(project_id=787)
+        print_progress_bar(0, len(project), prefix='Progress:', suffix='', length=50)
+        for i, issue in enumerate(project):
+            print_progress_bar(i, len(project), prefix='Progress:', suffix='', length=50)
+            if issue.status.id != 1 and not search_issue_re.findall(issue.description):
+                continue
+            matches = re.finditer(hash_regex, issue.description, re.MULTILINE)
+
+            version_list = []
+            for hash_match in matches:
+                if not hash_match.groups():
+                    continue
+                hash_str = hash_match.group(1)
+                git_cmd = f"git --git-dir={KERNEL_GIT_PATH}/.git describe --contains {hash_str}"
+                version_raw = self.exec_bash(git_cmd)
+                version_split = version_raw.split('~')[0][1:]
+                if kern_ver_re.match(version_split):
+                    version_list.append((hash_str, version_split))
+
+            if not version_list:
+                continue
+
+            str_to_post = ""
+            for item in version_list:
+                str_to_post += f"Исправлено начиная с версии: {item[1]}\n" \
+                               f"Коммит: https://github.com/torvalds/linux/commit/{item[0]}\n\n"
+            self.redmine.issue.update(project_id=787,
+                                      resource_id=issue.id,
+                                      notes=str_to_post,
+                                      status_id=16
+                                      )
 
     def get_one_cve(self, cve_id: str, check_patch=False, just_name=False) -> dict:
         """
@@ -1402,6 +1440,11 @@ def parse_args():
         nargs='+',
         help="Обновить поле CVE на основе темы и описания. Требует номер query и номер проекта"
     )
+    parser.add_argument(
+        '--update-resolved',
+        action='store_true',
+        help="Статистика по уязвимостям на трекере"
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1414,6 +1457,7 @@ def parse_args():
     parser.set_defaults(stat=False)
     parser.set_defaults(current_parsers=False)
     parser.set_defaults(show_maintainers=False)
+    parser.set_defaults(update_resolved=False)
     return parser.parse_args()
 
 
@@ -1431,6 +1475,8 @@ if __name__ == '__main__':
     START_DATE = arguments.start_date
     if arguments.update_cve_field:
         UPDATE_ARGS = flatten_chain(arguments.update_cve_field)
+    else:
+        UPDATE_ARGS = None
 
     if USERS:
         get_users_list()
@@ -1457,7 +1503,10 @@ if __name__ == '__main__':
     if arguments.cve_to_csv:
         cve_checker.save_cve_to_csv(arguments.cve_to_csv)
         exit(0)
-    if arguments.update_cve_field:
+    if arguments.update_resolved:
+        cve_checker.update_resolved_kernel_issues()
+        exit(0)
+    if UPDATE_ARGS:
         if len(UPDATE_ARGS) == 2:
             cve_checker.update_cve_field(query_id=UPDATE_ARGS[0],
                                          project_id=UPDATE_ARGS[1])
