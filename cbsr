@@ -663,7 +663,7 @@ class CveChecker:
         links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
         patch_links = [(link['url'], self.get_hash(link['url'])) for link in cve['cve']['references']
-                       if 'patch' in map(str.lower, link['tags'])]
+                       if (link.get('tags', "") and 'patch' in map(str.lower, link['tags']))]
 
         name = 'unknown'
         for item in self.which_pkg(desc, links, self.get_cpe(cve)):
