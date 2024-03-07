@@ -608,9 +608,9 @@ class CveChecker:
         print()
         print(f"{CSV_PATH}/query-{query_id}.csv was written")
 
-    def update_resolved_kernel_issues(self):
+    def update_resolved_kernel_issues(self, no_filter_kver=False):
         search_issue_re = re.compile(r"following vulnerability has been resolved", re.I)
-        hash_regex = r"^\\*\S.+commit/(\S+)"
+        hash_regex = r"^\* https://.+/commit/(\S+)"
         kern_ver_re = re.compile(r"^((5\.15)|(6\.[16]))\.")
 
         project = self.redmine.issue.filter(project_id=787)
@@ -629,7 +629,7 @@ class CveChecker:
                 git_cmd = f"git --git-dir={KERNEL_GIT_PATH}/.git describe --contains {hash_str}"
                 version_raw = self.exec_bash(git_cmd)
                 version_split = version_raw.split('~')[0][1:]
-                if kern_ver_re.match(version_split):
+                if no_filter_kver or kern_ver_re.match(version_split):
                     version_list.append((hash_str, version_split))
 
             if not version_list:
@@ -1504,7 +1504,7 @@ if __name__ == '__main__':
         cve_checker.save_cve_to_csv(arguments.cve_to_csv)
         exit(0)
     if arguments.update_resolved:
-        cve_checker.update_resolved_kernel_issues()
+        cve_checker.update_resolved_kernel_issues(no_filter_kver=True)
         exit(0)
     if UPDATE_ARGS:
         if len(UPDATE_ARGS) == 2:
