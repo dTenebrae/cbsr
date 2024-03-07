@@ -1258,25 +1258,29 @@ class CveChecker:
 
         for i, issue in enumerate(issues):
             subject = f'Уязвимость {pkg_name} {pkg_cves[i].get("id", "")}'
-            issue_id = self.create_an_issue(subject=subject,
-                                            desc=issue,
-                                            project_id=787 if pkg_name == 'kernel' else 297,
-                                            cve=pkg_cves[i].get("id", ""),
-                                            assigned_id=assigned_id,
-                                            watcher_ids=watcher_ids,
-                                            tag=pkg_name if pkg_name == 'kernel' else None)
+            try:
+                issue_id = self.create_an_issue(subject=subject,
+                                                desc=issue,
+                                                project_id=787 if pkg_name == 'kernel' else 297,
+                                                cve=pkg_cves[i].get("id", ""),
+                                                assigned_id=assigned_id,
+                                                watcher_ids=watcher_ids,
+                                                tag=pkg_name if pkg_name == 'kernel' else None)
 
-            print(f"Создана задача № {issue_id}")
-            issue_url = f"{REDMINE_URL}/issues/{issue_id}"
-            print(issue_url)
+                print(f"Создана задача № {issue_id}")
+                issue_url = f"{REDMINE_URL}/issues/{issue_id}"
+                print(issue_url)
 
-            if SEND_TO_TELEGRAM:
-                # self.manual_check = list(map(lambda x: f"https://nvd.nist.gov/vuln/detail/{x}",
-                #                              self.manual_check))
-                # manual_check_str = '\n'.join(self.manual_check)
-                # self.send_to_telegram(f"{subject}\nManual check:"
-                #                       f" {manual_check_str}\nTracker URL: {issue_url}")
-                self.send_to_telegram(f"\nSubject: {subject}\nTracker URL: {issue_url}")
+                if SEND_TO_TELEGRAM:
+                    # self.manual_check = list(map(lambda x: f"https://nvd.nist.gov/vuln/detail/{x}",
+                    #                              self.manual_check))
+                    # manual_check_str = '\n'.join(self.manual_check)
+                    # self.send_to_telegram(f"{subject}\nManual check:"
+                    #                       f" {manual_check_str}\nTracker URL: {issue_url}")
+                    self.send_to_telegram(f"\nSubject: {subject}\nTracker URL: {issue_url}")
+            except:
+                print("For some reason can't create an issue")
+                continue
 
         if successful_patches_list and SAVE_PATCHES:
             # чтобы итерироваться каждый раз по разным версиям, вместо общего счетчика
