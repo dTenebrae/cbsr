@@ -1224,6 +1224,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
                 'watchers': None,
             },
+            'tomcat': {
+                'check_func': self.is_tomcat_issue,
+                'cve_counter': 0,
+                'stapel_name': 'tomcat',
+                'nvr_list': [self.get_latest_rpm_data("tomcat", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['kirill.ivanov']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -3066,6 +3076,26 @@ class PkgHandler:
                     return IsXIssue.YES
 
         if cpe and (cpe[0].split(":")[4] == 'engrampa'):
+            return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_tomcat_issue(desc, links, cpe) -> IsXIssue:
+        if 'tomcat' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'list.apache.org',
+            'apache.org',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
+                return IsXIssue.YES
+
+        if cpe and (cpe[0].split(":")[4] == 'tomcat'):
             return IsXIssue.YES
 
         return IsXIssue.MAYBE
