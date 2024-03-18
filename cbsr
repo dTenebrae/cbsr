@@ -114,7 +114,7 @@ def get_response(*args, bs=True, parser='lxml', **kwargs):
             # Стучимся пока не соединимся.
             sleep(0.250)
             recon_count += 1
-    print(f'Ошибка соединения')
+    # print(f'Ошибка соединения')
 
 
 def get_users_list():
@@ -645,6 +645,54 @@ class CveChecker:
                                       status_id=16
                                       )
 
+    def update_bad_issues(self, query_id):
+        search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
+        project = self.redmine.issue.filter(query_id=query_id,
+                                            project_id=297)
+
+        print_progress_bar(0, len(project), prefix='Progress:', suffix='', length=50)
+
+        global_counter = 0
+        for i, issue in enumerate(project):
+            if global_counter > 4:
+                sleep(40)
+                global_counter = 0
+            print_progress_bar(i, len(project), prefix='Progress:', suffix='', length=50)
+            result_subject = issue.subject
+            result_description = issue.description
+            test_str = issue.subject + ' ' + issue.description
+            unique_cve = set(search_re.findall(test_str.lower()))
+            for item in unique_cve:
+                local_counter = 0
+                cve_data = self.get_one_cve(item.upper())
+                while not cve_data and local_counter < 5:
+                    sleep(30)
+                    cve_data = self.get_one_cve(item.upper())
+                    local_counter += 1
+                if not cve_data:
+                    print("Ошибка получения данных по CVE")
+                    continue
+                if cve_data['name'] != 'unknown':
+                    result_subject += f" {cve_data['name']}"
+
+                cve_str = self.get_issue_str(cve_data)
+                result_description += f"\n\n---\n\n{cve_str}"
+
+                existence = self.is_cve_exists_rest_api(item.upper(), return_link=True)
+                if existence[0]:
+                    for iss_id in existence[1]:
+                        if iss_id == str(issue.id):
+                            continue
+                        result_description += f"\nУпоминание уязвимости: " \
+                                              f"https://tracker.red-soft.ru/issues/{iss_id}"
+
+            self.redmine.issue.update(project_id=297,
+                                      resource_id=issue.id,
+                                      subject=result_subject,
+                                      description=result_description,
+                                      )
+            global_counter += 1
+
     def get_one_cve(self, cve_id: str, check_patch=False, just_name=False) -> dict:
         """
         Номер в виде CVE-2023-1234 на входе, словарь с данными на выходе
@@ -672,7 +720,7 @@ class CveChecker:
                 name = key
             if just_name:
                 return item
-            print(f"{item}")
+            # print(f"{item}")
 
         if just_name and name == 'unknown':
             return {}
@@ -1447,7 +1495,12 @@ def parse_args():
     parser.add_argument(
         '--update-resolved',
         action='store_true',
-        help="Статистика по уязвимостям на трекере"
+        help="Проходит по созданным темам (фильтрует по паттерну) и пытается написать в каком коммите побеждено"
+    )
+    parser.add_argument(
+        '--update-bad-issues',
+        action='store_true',
+        help="Обновляет некорректно созданные задачи вида 'Статус уязвимости'"
     )
 
     parser.set_defaults(exists=True)
@@ -1462,6 +1515,7 @@ def parse_args():
     parser.set_defaults(current_parsers=False)
     parser.set_defaults(show_maintainers=False)
     parser.set_defaults(update_resolved=False)
+    parser.set_defaults(update_bad_issues=False)
     return parser.parse_args()
 
 
@@ -1509,6 +1563,9 @@ if __name__ == '__main__':
         exit(0)
     if arguments.update_resolved:
         cve_checker.update_resolved_kernel_issues(no_filter_kver=True)
+        exit(0)
+    if arguments.update_bad_issues:
+        cve_checker.update_bad_issues(query_id=2165)
         exit(0)
     if UPDATE_ARGS:
         if len(UPDATE_ARGS) == 2:
