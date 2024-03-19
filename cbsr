@@ -33,6 +33,8 @@ credentials = dotenv_values(f"{ENV_PATH}/.env")
 # ############################ КОНСТАНТЫ #############################
 NUMBER_OF_RECON = 5
 SAVE_PATCHES = False  # Сохранять успешно примененные патчи на диск или нет
+VULN_PROJECT = 297
+KERN_PROJECT = 787
 
 REPO_PATH = credentials['REPO_PATH']
 REDMINE_URL = credentials['REDMINE_URL']
@@ -43,7 +45,7 @@ NIST_REJ = "noRejected"
 NIST_START = "pubStartDate"
 NIST_END = "pubEndDate"
 
-KERNEL_GIT_PATH = f"{os.path.expanduser('~')}/devel/kernel/src/linux"
+KERNEL_GIT_PATH = f"{os.path.expanduser('~')}/devel/kernel/src/linux-ml"
 KERNEL_PATH = f"{os.path.expanduser('.')}/src"
 TMP_PATCHES_PATH = f"{os.getcwd()}/output/tmp-patches"
 DEST_PATCH_PATH = f"{os.getcwd()}/output/patches"
@@ -574,8 +576,11 @@ class CveChecker:
             print_progress_bar(i, len(project), prefix='Progress:', suffix='', length=50)
 
     def save_cve_to_csv(self, query_id):
+        """
+        Выгружаем статистику по задачам и уязвимостям в CVE
+        """
         project = self.redmine.issue.filter(query_id=query_id,
-                                            project_id=297)
+                                            project_id=VULN_PROJECT)
         search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
         csv_header = [
             "Тема",
@@ -609,11 +614,15 @@ class CveChecker:
         print(f"{CSV_PATH}/query-{query_id}.csv was written")
 
     def update_resolved_kernel_issues(self, no_filter_kver=False):
+        """
+        Находит темы со строкой "following vulnerability has been resolved" и
+        отвечает в ней в каких версиях ядра это было исправлено
+        """
         search_issue_re = re.compile(r"following vulnerability has been resolved", re.I)
         hash_regex = r"^\* https://.+/commit/(\S+)"
         kern_ver_re = re.compile(r"^((5\.15)|(6\.[16]))\.")
 
-        project = self.redmine.issue.filter(project_id=787)
+        project = self.redmine.issue.filter(project_id=KERN_PROJECT)
         print_progress_bar(0, len(project), prefix='Progress:', suffix='', length=50)
         for i, issue in enumerate(project):
             print_progress_bar(i, len(project), prefix='Progress:', suffix='', length=50)
@@ -639,21 +648,27 @@ class CveChecker:
             for item in version_list:
                 str_to_post += f"Исправлено начиная с версии: {item[1]}\n" \
                                f"Коммит: https://github.com/torvalds/linux/commit/{item[0]}\n\n"
-            self.redmine.issue.update(project_id=787,
+            self.redmine.issue.update(project_id=KERN_PROJECT,
                                       resource_id=issue.id,
                                       notes=str_to_post,
                                       status_id=16
                                       )
 
     def update_bad_issues(self, query_id):
+        """
+        Меняет темы вида "Статус уязвимости" без полезной информации добавляя
+        в нее эту самую информацию. На вход требует номер query по задачам из которого
+        будет итерироваться
+        """
         search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
         project = self.redmine.issue.filter(query_id=query_id,
-                                            project_id=297)
+                                            project_id=VULN_PROJECT)
 
         print_progress_bar(0, len(project), prefix='Progress:', suffix='', length=50)
 
         global_counter = 0
         for i, issue in enumerate(project):
+            change_flag = False
             if global_counter > 4:
                 sleep(40)
                 global_counter = 0
@@ -664,19 +679,23 @@ class CveChecker:
             unique_cve = set(search_re.findall(test_str.lower()))
             for item in unique_cve:
                 local_counter = 0
-                cve_data = self.get_one_cve(item.upper())
-                while not cve_data and local_counter < 5:
+                cve_data, status = self.get_one_cve(item.upper())
+                while not cve_data and not status and local_counter < 5:
                     sleep(30)
-                    cve_data = self.get_one_cve(item.upper())
+                    cve_data = self.get_one_cve(item.upper())[0]
                     local_counter += 1
-                if not cve_data:
+                if not cve_data and not status:
                     print("Ошибка получения данных по CVE")
+                    continue
+                elif not cve_data and status:
                     continue
                 if cve_data['name'] != 'unknown':
                     result_subject += f" {cve_data['name']}"
+                    change_flag = True
 
                 cve_str = self.get_issue_str(cve_data)
                 result_description += f"\n\n---\n\n{cve_str}"
+                change_flag = True
 
                 existence = self.is_cve_exists_rest_api(item.upper(), return_link=True)
                 if existence[0]:
@@ -686,14 +705,15 @@ class CveChecker:
                         result_description += f"\nУпоминание уязвимости: " \
                                               f"https://tracker.red-soft.ru/issues/{iss_id}"
 
-            self.redmine.issue.update(project_id=297,
-                                      resource_id=issue.id,
-                                      subject=result_subject,
-                                      description=result_description,
-                                      )
+            if change_flag:
+                self.redmine.issue.update(project_id=VULN_PROJECT,
+                                          resource_id=issue.id,
+                                          subject=result_subject,
+                                          description=result_description,
+                                          )
             global_counter += 1
 
-    def get_one_cve(self, cve_id: str, check_patch=False, just_name=False) -> dict:
+    def get_one_cve(self, cve_id: str, check_patch=False, just_name=False) -> (dict, bool):
         """
         Номер в виде CVE-2023-1234 на входе, словарь с данными на выходе
         """
@@ -704,7 +724,7 @@ class CveChecker:
         nist_resp = get_response(url, bs=False, headers=HEADERS)
         nist_json = nist_resp.json() if nist_resp else None
         if not nist_json or not nist_json.get('vulnerabilities', ""):
-            return {}
+            return {}, nist_resp.status_code == requests.codes.ok
 
         cve = nist_json.get('vulnerabilities')[0]
         desc = cve['cve']['descriptions'][0]['value'].lower()
@@ -719,13 +739,14 @@ class CveChecker:
             if value == 'yes':
                 name = key
             if just_name:
-                return item
+                return item, nist_resp.status_code == requests.codes.ok
             # print(f"{item}")
 
         if just_name and name == 'unknown':
-            return {}
+            return {}, nist_resp.status_code == requests.codes.ok
 
-        return self.get_issue(name, cve, desc, links, patch_links, check_patch=check_patch)
+        return self.get_issue(name, cve, desc, links, patch_links, check_patch=check_patch), \
+            nist_resp.status_code == requests.codes.ok
 
     # TODO Дублирование кода и смысла с функцией check_cve. Переписать
     def which_pkg(self, desc, links, cve) -> list:
@@ -1309,7 +1330,7 @@ class CveChecker:
             try:
                 issue_id = self.create_an_issue(subject=subject,
                                                 desc=issue,
-                                                project_id=787 if pkg_name == 'kernel' else 297,
+                                                project_id=KERN_PROJECT if pkg_name == 'kernel' else VULN_PROJECT,
                                                 cve=pkg_cves[i].get("id", ""),
                                                 assigned_id=assigned_id,
                                                 watcher_ids=watcher_ids,
@@ -1542,7 +1563,7 @@ if __name__ == '__main__':
 
     cve_checker = CveChecker(DAYS_TO_CHECK, NUMBER_OF_RECON, AUTO)
     if CVE:
-        one_cve = cve_checker.get_one_cve(CVE, check_patch=True)
+        one_cve = cve_checker.get_one_cve(CVE, check_patch=True)[0]
         if one_cve:
             print(f"Package exists on tracker: "
                   f"{cve_checker.is_cve_exists_rest_api(CVE, return_link=True)[0]}")
