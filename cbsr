@@ -45,7 +45,18 @@ NIST_REJ = "noRejected"
 NIST_START = "pubStartDate"
 NIST_END = "pubEndDate"
 
-KERNEL_GIT_PATH = f"{os.path.expanduser('~')}/devel/kernel/src/linux-ml"
+KERNEL_ML_GIT_PATH = f"{os.path.expanduser('~')}/devel/kernel/src/linux-ml"
+KERNEL_ST_5_15_GIT_PATH = f"{os.path.expanduser('~')}/devel/kernel/src/linux-5.15.y"
+KERNEL_ST_6_1_GIT_PATH = f"{os.path.expanduser('~')}/devel/kernel/src/linux-6.1.y"
+KERNEL_ST_6_6_GIT_PATH = f"{os.path.expanduser('~')}/devel/kernel/src/linux-6.6.y"
+
+KERN_PATH_DICT = {
+    "mainline": KERNEL_ML_GIT_PATH,
+    "5.15.y": KERNEL_ST_5_15_GIT_PATH,
+    "6.1.y": KERNEL_ST_6_1_GIT_PATH,
+    "6.6.y": KERNEL_ST_6_6_GIT_PATH,
+}
+
 KERNEL_PATH = f"{os.path.expanduser('.')}/src"
 TMP_PATCHES_PATH = f"{os.getcwd()}/output/tmp-patches"
 DEST_PATCH_PATH = f"{os.getcwd()}/output/patches"
@@ -635,7 +646,7 @@ class CveChecker:
                 if not hash_match.groups():
                     continue
                 hash_str = hash_match.group(1)
-                git_cmd = f"git --git-dir={KERNEL_GIT_PATH}/.git describe --contains {hash_str}"
+                git_cmd = f"git --git-dir={KERNEL_ML_GIT_PATH}/.git describe --contains {hash_str}"
                 version_raw = self.exec_bash(git_cmd)
                 version_split = version_raw.split('~')[0][1:]
                 if no_filter_kver or kern_ver_re.match(version_split):
@@ -724,14 +735,18 @@ class CveChecker:
         nist_resp = get_response(url, bs=False, headers=HEADERS)
         nist_json = nist_resp.json() if nist_resp else None
         if not nist_json or not nist_json.get('vulnerabilities', ""):
-            return {}, nist_resp.status_code == requests.codes.ok
+            return {}, nist_resp.status_code == requests.codes.ok if nist_resp else False
 
         cve = nist_json.get('vulnerabilities')[0]
         desc = cve['cve']['descriptions'][0]['value'].lower()
         links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
-        patch_links = [(link['url'], self.get_hash(link['url'])) for link in cve['cve']['references']
-                       if (link.get('tags', "") and 'patch' in map(str.lower, link['tags']))]
+        patch_links = []
+
+        for link in cve['cve']['references']:
+            if link.get('tags', "") and ('patch' in map(str.lower, link['tags'])):
+                prepared_link = self.process_urls([link['url']])[0]
+                patch_links.append((prepared_link, self.get_hash(prepared_link)))
 
         name = 'unknown'
         for item in self.which_pkg(desc, links, self.get_cpe(cve)):
@@ -835,8 +850,12 @@ class CveChecker:
             desc = cve['cve']['descriptions'][0]['value'].lower()
             links = self.process_urls([link['url'] for link in cve['cve']['references']])
 
-            patch_links = [(link['url'], self.get_hash(link['url'])) for link in cve['cve']['references']
-                           if (link.get('tags', "") and 'patch' in map(str.lower, link['tags']))]
+            patch_links = []
+
+            for link in cve['cve']['references']:
+                if link.get('tags', "") and ('patch' in map(str.lower, link['tags'])):
+                    prepared_link = self.process_urls([link['url']])[0]
+                    patch_links.append((prepared_link, self.get_hash(prepared_link)))
 
             for pkg_name, pkg_data in self.pkg_handler.pkgs_data.items():
                 if cve['cve']['id'] in cve_id_list:
@@ -1161,6 +1180,58 @@ class CveChecker:
                 print(75 * "-")
             else:
                 continue
+
+    def get_stable_hashes(self, cve):
+        result = {}
+        resp = self.get_one_cve(cve_id=cve)
+        if not resp[1]:
+            return
+        hash_set = set([hsh[1] for hsh in resp[0]['patch_links'] if hsh[1]])
+
+        for long_hsh in hash_set:
+            tmp_dict = {}
+            short_hsh = long_hsh[:7] if len(long_hsh) > 7 else ""
+            for kern_str, kern_path in KERN_PATH_DICT.items():
+                git_describe_hash = f'git -C {kern_path} describe --contains {long_hsh}'
+                hash_resp = self.exec_bash(git_describe_hash)
+                if hash_resp:
+                    tmp_dict[kern_str] = {
+                        "kern": hash_resp.split('~')[0][1:],
+                        "hash": long_hsh,
+                    }
+                    continue
+
+                git_search_commit_str = f'git -C {kern_path} log -1 --all --grep="commit {long_hsh} ' \
+                                        f'upstream" --format=format:"%H"'
+                hash_resp = self.exec_bash(git_search_commit_str)
+                if hash_resp:
+                    git_describe_hash = f'git -C {kern_path} describe --contains {hash_resp}'
+                    contains_resp = self.exec_bash(git_describe_hash)
+                    tmp_dict[kern_str] = {
+                        "kern": contains_resp.split('~')[0][1:],
+                        "hash": hash_resp,
+                    }
+                    continue
+
+                if not short_hsh:
+                    continue
+
+                git_search_commit_str = f'git -C {kern_path} log -1 --all --grep="commit {short_hsh} ' \
+                                        f'upstream" --format=format:"%H"'
+                hash_resp = self.exec_bash(git_search_commit_str)
+                if hash_resp:
+                    git_describe_hash = f'git -C {kern_path} describe --contains {hash_resp}'
+                    contains_resp = self.exec_bash(git_describe_hash)
+                    tmp_dict[kern_str] = {
+                        "kern": contains_resp.split('~')[0][1:],
+                        "hash": hash_resp,
+                    }
+                    continue
+                tmp_dict[kern_str] = 'not found'
+
+            result[long_hsh] = tmp_dict
+
+        return result
 
     @staticmethod
     def find_all_issues(n=50):
@@ -1523,6 +1594,11 @@ def parse_args():
         action='store_true',
         help="Обновляет некорректно созданные задачи вида 'Статус уязвимости'"
     )
+    parser.add_argument(
+        '--get-stable-hashes',
+        type=str,
+        help="Получить по номеру CVE хэши ML и стабильных веток и версии с которых исправлено"
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1587,6 +1663,16 @@ if __name__ == '__main__':
         exit(0)
     if arguments.update_bad_issues:
         cve_checker.update_bad_issues(query_id=2165)
+        exit(0)
+    if arguments.get_stable_hashes:
+        res_hash = cve_checker.get_stable_hashes(cve=arguments.get_stable_hashes)
+        if not res_hash:
+            print("Not resolved")
+            exit(0)
+        for _, hash_dict in res_hash.items():
+            for k, v in hash_dict.items():
+                print(f"{k}: Исправлено начиная с: {v['kern']} "
+                      f"Ссылка на коммит: https://github.com/torvalds/linux/commit/{v['hash']}")
         exit(0)
     if UPDATE_ARGS:
         if len(UPDATE_ARGS) == 2:
