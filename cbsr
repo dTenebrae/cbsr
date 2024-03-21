@@ -31,7 +31,7 @@ ENV_PATH = os.path.abspath(os.path.dirname(__file__))
 credentials = dotenv_values(f"{ENV_PATH}/.env")
 
 # ############################ КОНСТАНТЫ #############################
-NUMBER_OF_RECON = 5
+NUMBER_OF_RECON = 0
 SAVE_PATCHES = False  # Сохранять успешно примененные патчи на диск или нет
 VULN_PROJECT = 297
 KERN_PROJECT = 787
@@ -763,6 +763,17 @@ class CveChecker:
         return self.get_issue(name, cve, desc, links, patch_links, check_patch=check_patch), \
             nist_resp.status_code == requests.codes.ok
 
+    @staticmethod
+    def redhat_cve_to_pkg_namelist(cve_id) -> (list, bool):
+        rh_url = f"https://access.redhat.com/hydra/rest/securitydata/cve/{cve_id}.json"
+        rh_resp = get_response(rh_url, bs=False, headers=HEADERS)
+        rh_json = rh_resp.json() if rh_resp else None
+        if not rh_json or not rh_json.get("package_state", ""):
+            return [], rh_resp.status_code == requests.codes.ok if rh_resp else False
+
+        return list(set([name.get('package_name', '') for name in rh_json['package_state']])), \
+            rh_resp.status_code == requests.codes.ok
+
     # TODO Дублирование кода и смысла с функцией check_cve. Переписать
     def which_pkg(self, desc, links, cve) -> list:
         result = []
@@ -1181,12 +1192,9 @@ class CveChecker:
             else:
                 continue
 
-    def get_stable_hashes(self, cve):
+    def get_stable_hashes(self, resp):
         result = {}
-        resp = self.get_one_cve(cve_id=cve)
-        if not resp[1]:
-            return
-        hash_set = set([hsh[1] for hsh in resp[0]['patch_links'] if hsh[1]])
+        hash_set = set([hsh[1] for hsh in resp['patch_links'] if hsh[1]])
 
         for long_hsh in hash_set:
             tmp_dict = {}
@@ -1599,6 +1607,11 @@ def parse_args():
         type=str,
         help="Получить по номеру CVE хэши ML и стабильных веток и версии с которых исправлено"
     )
+    parser.add_argument(
+        '--test-rh-api',
+        type=str,
+        help=""
+    )
 
     parser.set_defaults(exists=True)
     parser.set_defaults(tracker=True)
@@ -1664,11 +1677,16 @@ if __name__ == '__main__':
     if arguments.update_bad_issues:
         cve_checker.update_bad_issues(query_id=2165)
         exit(0)
+    if arguments.test_rh_api:
+        print(cve_checker.redhat_cve_to_pkg_namelist(arguments.test_rh_api))
+        exit(0)
     if arguments.get_stable_hashes:
-        res_hash = cve_checker.get_stable_hashes(cve=arguments.get_stable_hashes)
-        if not res_hash:
-            print("Not resolved")
+        resp = cve_checker.get_one_cve(cve_id=arguments.get_stable_hashes)
+        if not resp[1]:
+            print("Service unavailable")
             exit(0)
+
+        res_hash = cve_checker.get_stable_hashes(resp[0])
         for _, hash_dict in res_hash.items():
             for k, v in hash_dict.items():
                 print(f"{k}: Исправлено начиная с: {v['kern']} "
