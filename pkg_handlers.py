@@ -1716,9 +1716,15 @@ class PkgHandler:
         if 'libreswan' not in split_and_strip(desc):
             return IsXIssue.NO
 
+        check_urls = [
+            'Libreswan.org',
+        ]
+
         for link in links:
             netloc = parse.urlparse(link).netloc
             path_first = parse.urlparse(link).path.split('/')[1]
+            if netloc in check_urls:
+                return IsXIssue.YES
             if netloc == 'github.com' and path_first == 'libreswan':
                 return IsXIssue.YES
 

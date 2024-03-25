@@ -111,6 +111,14 @@ def get_response(*args, bs=True, parser='lxml', **kwargs):
     * parser - какой парсер страницы используем (html, xml, lxml)
     * NUMBER_OF_RECON - глобальная опция. Сколько стучимся, если поймали ошибку соединения
     """
+    # response: requests.Response = requests.get(*args, **kwargs)
+    # if bs and response.status_code == requests.codes.ok:
+    #     return BeautifulSoup(response.text, parser)
+    # elif bs and response.status_code != requests.codes.ok:
+    #     return None
+    # else:
+    #     return response
+
     recon_count = 0
     while recon_count <= NUMBER_OF_RECON:
         try:
@@ -127,6 +135,8 @@ def get_response(*args, bs=True, parser='lxml', **kwargs):
             # Стучимся пока не соединимся.
             sleep(0.250)
             recon_count += 1
+            return response
+
     # print(f'Ошибка соединения')
 
 
@@ -813,6 +823,7 @@ class CveChecker:
         :return: Возвращаем счетчики уязвимостей обратно
         """
 
+        rh_check = self.redhat_cve_to_pkg_namelist(cve['cve']['id'])
         is_pkg = check_func(desc, links, cpe=self.get_cpe(cve))
         if is_pkg == IsXIssue.YES:
             cve_count += 1
@@ -857,6 +868,9 @@ class CveChecker:
         print(f'Total CVE found:          {total_res}')
         for cve in nist_json.get('vulnerabilities'):
 
+            if cve['cve']['id'] in cve_id_list:
+                continue
+
             # подготовим данные для проверки
             desc = cve['cve']['descriptions'][0]['value'].lower()
             links = self.process_urls([link['url'] for link in cve['cve']['references']])
@@ -868,9 +882,42 @@ class CveChecker:
                     prepared_link = self.process_urls([link['url']])[0]
                     patch_links.append((prepared_link, self.get_hash(prepared_link)))
 
+            rh_check = self.redhat_cve_to_pkg_namelist(cve['cve']['id'])
+            rh_found = False
+            if rh_check[1]:
+                for rh_name in rh_check[0]:
+                    if rh_name == 'kernel':
+                        rh_name = 'kernel-lt'
+                    stapel_data = [self.pkg_handler.get_latest_rpm_data(rh_name, tag[0], tag[1]).get('version', "")
+                                   for tag in self.pkg_handler.tags]
+                    if not stapel_data:
+                        continue
+                    if not cve['cve']['id'] in cve_id_list:
+                        cve_id_list.append(cve['cve']['id'])
+                    else:
+                        continue
+                    rh_found = True
+
+                    if CHECK_REDMINE and self.is_cve_exists_rest_api(cve['cve']['id'])[0]:
+                        break
+
+                    cve_data_list.append(self.get_issue(rh_name, cve, desc, links, patch_links))
+                    if not self.pkg_handler.pkgs_data.get(rh_name, ""):
+                        self.pkg_handler.pkgs_data[rh_name] = {
+                            'check_func': None,
+                            'cve_counter': 1,
+                            'stapel_name': rh_name,
+                            'nvr_list': stapel_data,
+                            'check_patch': True,
+                            'assigned_to': int(self.pkg_handler.users_dict['vladimir.chirkin']),
+                        }
+                    else:
+                        self.pkg_handler.pkgs_data[rh_name]['cve_counter'] += 1
+
+            if rh_found:
+                continue
+
             for pkg_name, pkg_data in self.pkg_handler.pkgs_data.items():
-                if cve['cve']['id'] in cve_id_list:
-                    continue
                 pkg_data['cve_counter'], exists_count = self.check_cve(pkg_name,
                                                                        pkg_data['check_func'],
                                                                        cve,
