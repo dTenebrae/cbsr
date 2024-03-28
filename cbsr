@@ -1735,8 +1735,11 @@ if __name__ == '__main__':
         res_hash = cve_checker.get_stable_hashes(resp[0])
         for _, hash_dict in res_hash.items():
             for k, v in hash_dict.items():
-                print(f"{k}: Исправлено начиная с: {v['kern']} "
-                      f"Ссылка на коммит: https://github.com/torvalds/linux/commit/{v['hash']}")
+                if isinstance(v, dict):
+                    print(f"{k}: Исправлено начиная с: {v['kern']} "
+                          f"Ссылка на коммит: https://github.com/torvalds/linux/commit/{v['hash']}")
+                else:
+                    print(f"{k}: {v}")
         exit(0)
     if UPDATE_ARGS:
         if len(UPDATE_ARGS) == 2:
