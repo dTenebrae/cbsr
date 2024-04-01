@@ -675,7 +675,7 @@ class CveChecker:
                                       status_id=16
                                       )
 
-    def update_bad_issues(self, query_id):
+    def update_bad_issues(self, query_id, project_id):
         """
         Меняет темы вида "Статус уязвимости" без полезной информации добавляя
         в нее эту самую информацию. На вход требует номер query по задачам из которого
@@ -683,7 +683,7 @@ class CveChecker:
         """
         search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
         project = self.redmine.issue.filter(query_id=query_id,
-                                            project_id=VULN_PROJECT)
+                                            project_id=project_id)
 
         print_progress_bar(0, len(project), prefix='Progress:', suffix='', length=50)
 
@@ -1645,8 +1645,10 @@ def parse_args():
     )
     parser.add_argument(
         '--update-bad-issues',
-        action='store_true',
-        help="Обновляет некорректно созданные задачи вида 'Статус уязвимости'"
+        type=int,
+        action='append',
+        nargs='+',
+        help="Обновляет некорректно созданные задачи вида 'Статус уязвимости'. Требует номер query и проекта"
     )
     parser.add_argument(
         '--get-stable-hashes',
@@ -1671,7 +1673,6 @@ def parse_args():
     parser.set_defaults(current_parsers=False)
     parser.set_defaults(show_maintainers=False)
     parser.set_defaults(update_resolved=False)
-    parser.set_defaults(update_bad_issues=False)
     return parser.parse_args()
 
 
@@ -1691,6 +1692,11 @@ if __name__ == '__main__':
         UPDATE_ARGS = flatten_chain(arguments.update_cve_field)
     else:
         UPDATE_ARGS = None
+
+    if arguments.update_bad_issues:
+        UPDATE_ISSUES_ARGS = flatten_chain(arguments.update_bad_issues)
+    else:
+        UPDATE_ISSUES_ARGS = None
 
     if USERS:
         get_users_list()
@@ -1720,9 +1726,16 @@ if __name__ == '__main__':
     if arguments.update_resolved:
         cve_checker.update_resolved_kernel_issues(no_filter_kver=True)
         exit(0)
-    if arguments.update_bad_issues:
-        cve_checker.update_bad_issues(query_id=2165)
+
+    if UPDATE_ISSUES_ARGS:
+        if len(UPDATE_ISSUES_ARGS) == 2:
+            cve_checker.update_bad_issues(query_id=UPDATE_ISSUES_ARGS[0],
+                                         project_id=UPDATE_ISSUES_ARGS[1])
+        else:
+            print("Wrong arguments number")
+            exit(1)
         exit(0)
+
     if arguments.test_rh_api:
         print(cve_checker.redhat_cve_to_pkg_namelist(arguments.test_rh_api))
         exit(0)
