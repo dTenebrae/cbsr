@@ -1238,13 +1238,37 @@ class CveChecker:
             else:
                 continue
 
-    def get_stable_hashes(self, resp):
+    def get_stable_hashes(self, resp, hash_flag=False):
+        def check_hash(hash_str: str) -> (str, str):
+            short_hsh = hash_str[:7] if len(hash_str) > 7 else ""
+            check_list = [
+                f"commit {hash_str} upstream",
+                f"upstream commit {hash_str}",
+                f"upstream {hash_str} commit",
+                f"commit {short_hsh} upstream" if short_hsh else "",
+                f"upstream commit {short_hsh}" if short_hsh else "",
+                f"upstream {short_hsh} commit" if short_hsh else "",
+            ]
+            check_list = [item for item in check_list if item]
+            for check_item in check_list:
+                git_search_commit_str = (f'git -C {kern_path} log -1 --all --grep="{check_item}" '
+                                         f'-i --format=format:"%H"')
+                hash_resp = self.exec_bash(git_search_commit_str)
+                if hash_resp:
+                    git_describe_hash = f'git -C {kern_path} describe --contains {hash_resp}'
+                    contains_resp = self.exec_bash(git_describe_hash)
+                    return contains_resp.split('~')[0][1:], hash_resp
+
+            return "", ""
+
         result = {}
-        hash_set = set([hsh[1] for hsh in resp['patch_links'] if hsh[1]])
+        if not hash_flag:
+            hash_set = set([hsh[1] for hsh in resp['patch_links'] if hsh[1]])
+        else:
+            hash_set = set([resp])
 
         for long_hsh in hash_set:
             tmp_dict = {}
-            short_hsh = long_hsh[:7] if len(long_hsh) > 7 else ""
             for kern_str, kern_path in KERN_PATH_DICT.items():
                 git_describe_hash = f'git -C {kern_path} describe --contains {long_hsh}'
                 hash_resp = self.exec_bash(git_describe_hash)
@@ -1255,32 +1279,14 @@ class CveChecker:
                     }
                     continue
 
-                git_search_commit_str = f'git -C {kern_path} log -1 --all --grep="commit {long_hsh} ' \
-                                        f'upstream" --format=format:"%H"'
-                hash_resp = self.exec_bash(git_search_commit_str)
-                if hash_resp:
-                    git_describe_hash = f'git -C {kern_path} describe --contains {hash_resp}'
-                    contains_resp = self.exec_bash(git_describe_hash)
+                contains_str, hash_str = check_hash(long_hsh)
+                if contains_str:
                     tmp_dict[kern_str] = {
-                        "kern": contains_resp.split('~')[0][1:],
-                        "hash": hash_resp,
+                        "kern": contains_str,
+                        "hash": hash_str,
                     }
                     continue
 
-                if not short_hsh:
-                    continue
-
-                git_search_commit_str = f'git -C {kern_path} log -1 --all --grep="commit {short_hsh} ' \
-                                        f'upstream" --format=format:"%H"'
-                hash_resp = self.exec_bash(git_search_commit_str)
-                if hash_resp:
-                    git_describe_hash = f'git -C {kern_path} describe --contains {hash_resp}'
-                    contains_resp = self.exec_bash(git_describe_hash)
-                    tmp_dict[kern_str] = {
-                        "kern": contains_resp.split('~')[0][1:],
-                        "hash": hash_resp,
-                    }
-                    continue
                 tmp_dict[kern_str] = 'not found'
 
             result[long_hsh] = tmp_dict
@@ -1730,7 +1736,7 @@ if __name__ == '__main__':
     if UPDATE_ISSUES_ARGS:
         if len(UPDATE_ISSUES_ARGS) == 2:
             cve_checker.update_bad_issues(query_id=UPDATE_ISSUES_ARGS[0],
-                                         project_id=UPDATE_ISSUES_ARGS[1])
+                                          project_id=UPDATE_ISSUES_ARGS[1])
         else:
             print("Wrong arguments number")
             exit(1)
@@ -1740,19 +1746,26 @@ if __name__ == '__main__':
         print(cve_checker.redhat_cve_to_pkg_namelist(arguments.test_rh_api))
         exit(0)
     if arguments.get_stable_hashes:
-        resp = cve_checker.get_one_cve(cve_id=arguments.get_stable_hashes)
-        if not resp[1]:
-            print("Service unavailable")
-            exit(0)
+        search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
+        hash_flag = not bool(search_re.findall(arguments.get_stable_hashes))
+        if not hash_flag:
+            resp = cve_checker.get_one_cve(cve_id=arguments.get_stable_hashes)
+            if not resp[1]:
+                print("Service unavailable")
+                exit(0)
+            else:
+                resp = resp[0]
+        else:
+            resp = arguments.get_stable_hashes
 
-        res_hash = cve_checker.get_stable_hashes(resp[0])
+        res_hash = cve_checker.get_stable_hashes(resp, hash_flag=hash_flag)
         for _, hash_dict in res_hash.items():
             for k, v in hash_dict.items():
                 if isinstance(v, dict):
                     print(f"{k}: Исправлено начиная с: {v['kern']} "
-                          f"Ссылка на коммит: https://github.com/torvalds/linux/commit/{v['hash']}")
+                          f"\n\n* Коммит: https://github.com/torvalds/linux/commit/{v['hash']}\n")
                 else:
-                    print(f"{k}: {v}")
+                    print(f"{k}: {v}\n")
         exit(0)
     if UPDATE_ARGS:
         if len(UPDATE_ARGS) == 2:
