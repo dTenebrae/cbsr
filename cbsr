@@ -1401,28 +1401,29 @@ class CveChecker:
         result = ps.communicate()[0].decode('utf-8')
         return json.loads(result) if result else {}
 
-    def check_patches(self, version):
-        if version:
-            kern_paths = [f"{KERNEL_PATH}/linux-{version}"]
+    def check_patches(self, kern_path, patch_path):
+        if kern_path:
+            kern_paths = [os.path.expanduser(kern_path)]
         else:
             kern_paths = self.kernel_paths
 
-        for subdir, dirs, files in os.walk(DEST_PATCH_PATH):
+        patch_paths = os.path.expanduser(patch_path) if patch_path else DEST_PATCH_PATH
+        for subdir, dirs, files in os.walk(patch_paths):
             if not files:
                 continue
 
             for path in kern_paths:
                 checked_list = []
                 print()
-                print(100 * "=")
-                print(f"Патчи из {subdir.split('/')[-1]} для ядра {re.findall(self.ver_re, path)[0]}")
-                print(100 * "=")
+                # print(120 * "=")
+                # print(f"Патчи из {subdir.split('/')[-1]} для ядра {re.findall(self.ver_re, path)[0]}")
+                print(120 * "=")
                 for file in files:
                     patch_path = os.path.join(subdir, file)
                     check_result = self.apply_patches(path, patch_path)
                     checked_list.append((file, check_result))
                 for item in sorted(checked_list, key=lambda x: x[1].value):
-                    print(f"{item[0]:<70} -> {item[1]:^20}")
+                    print(f"{item[0]:<85} -> {item[1]:^20}")
 
     def check_and_post(self,
                        pkg_name,
@@ -1602,8 +1603,9 @@ def parse_args():
     parser.add_argument(
         '--check-patches',
         type=str,
-        default='',
-        help="Проверка имеющихся патчей на актуальных версиях ядра"
+        action='append',
+        nargs=2,
+        help="Проверить на указанных сорцах указанную папку с патчами"
     )
     parser.add_argument(
         '--current-parsers',
@@ -1704,6 +1706,11 @@ if __name__ == '__main__':
     else:
         UPDATE_ISSUES_ARGS = None
 
+    if arguments.check_patches:
+        CHECK_PATCHES_ARG = flatten_chain(arguments.check_patches)
+    else:
+        CHECK_PATCHES_ARG = None
+
     if USERS:
         get_users_list()
         exit(0)
@@ -1782,8 +1789,8 @@ if __name__ == '__main__':
         if nvr_data:
             print(nvr_data)
         exit(0)
-    if arguments.check_patches:
-        cve_checker.check_patches(arguments.check_patches)
+    if CHECK_PATCHES_ARG:
+        cve_checker.check_patches(CHECK_PATCHES_ARG[0], CHECK_PATCHES_ARG[1])
         exit(0)
     if arguments.current_parsers:
         cve_checker.print_parsers()
