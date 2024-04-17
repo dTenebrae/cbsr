@@ -16,6 +16,7 @@ credentials = dotenv_values(f"{ENV_PATH}/.env")
 USERS_LIST = f"{os.path.expanduser('.')}/users.json"
 TAG_LIST_ST7 = [
     "os73-updates",
+    "os73-chromium",
     "os73-kernel",
     "os73-kernel6",
 ]
