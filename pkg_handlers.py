@@ -16,10 +16,11 @@ credentials = dotenv_values(f"{ENV_PATH}/.env")
 USERS_LIST = f"{os.path.expanduser('.')}/users.json"
 TAG_LIST_ST7 = [
     "os73-updates",
+    "os73-kernel",
     "os73-kernel6",
 ]
 TAG_LIST_ST8 = [
-    "redos80",
+    "redos80-updates",
 ]
 KOJI7_URL = credentials['KOJI7_URL']
 KOJI8_URL = credentials['KOJI8_URL']
@@ -252,7 +253,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("firefox", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'assigned_to': int(self.users_dict['ilia.polyvyanyy']),
                 'watchers': [int(self.users_dict['oleg.shaposhnikov'])],
             },
             'Thunderbird': {
@@ -262,7 +263,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("thunderbird", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['alexey.rodionov']),
+                'assigned_to': int(self.users_dict['ilia.polyvyanyy']),
                 'watchers': [int(self.users_dict['oleg.shaposhnikov'])],
             },
             'cURL': {
