@@ -1176,7 +1176,7 @@ class PkgHandler:
                 'watchers': None,
             },
             'DHCPD': {
-                'check_func': self.is_postgresql_issue,
+                'check_func': self.is_dhcpd_issue,
                 'cve_counter': 0,
                 'stapel_name': 'dhcp',
                 'nvr_list': [self.get_latest_rpm_data("dhcp", tag[0], tag[1]).get('version', "")
@@ -1186,7 +1186,7 @@ class PkgHandler:
                 'watchers': None,
             },
             'PostgreSQL': {
-                'check_func': self.is_dhcpd_issue,
+                'check_func': self.is_postgresql_issue,
                 'cve_counter': 0,
                 'stapel_name': 'postgresql',
                 'nvr_list': [self.get_latest_rpm_data("postgresql", tag[0], tag[1]).get('version', "")
