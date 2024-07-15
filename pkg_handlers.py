@@ -242,8 +242,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("moodle", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': choice([int(self.users_dict['vladislav.mitin']),
-                                       int(self.users_dict['ilia.polyvyanyy'])]),
+                'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
             'Firefox': {

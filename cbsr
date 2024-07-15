@@ -710,9 +710,9 @@ class CveChecker:
                     continue
                 elif not cve_data and status:
                     continue
-                if cve_data['name'] != 'unknown':
-                    result_subject += f" {cve_data['name']}"
-                    change_flag = True
+                # if cve_data['name'] != 'unknown':
+                #     result_subject += f" {cve_data['name']}"
+                #     change_flag = True
 
                 cve_str = self.get_issue_str(cve_data)
                 result_description += f"\n\n---\n\n{cve_str}"
