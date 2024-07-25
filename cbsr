@@ -347,6 +347,28 @@ class CveChecker:
             })
         return cve_dict
 
+    @staticmethod
+    def create_chromecve(url) -> []:
+        cve_list = []
+        resp = get_response(url,
+                            bs=True,
+                            parser='lxml',
+                            headers=HEADERS,
+                            )
+        search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
+        resp_body = resp.find('div', attrs={"class": "post-body"})
+        for item in resp_body.find_all('p', attrs={'dir': 'ltr'}):
+            raw_cve_data = search_re.findall(item.text)
+            if not raw_cve_data:
+                continue
+            processed_cve_str = re.split('(Reported)', item.text.split(" ", 1)[1:][0])[0].strip()
+            cve_list.append({
+                'id': processed_cve_str.split(':')[0].split()[1],
+                'severity': processed_cve_str.split(':')[0].split()[0],
+                'description': processed_cve_str.split(':')[1].strip(),
+            })
+        return cve_list
+
     def get_mozilla_cves(self, n=3):
         """
         Собираем cve с мозилловского блога
@@ -1652,6 +1674,11 @@ def parse_args():
         help="Проходит по созданным темам (фильтрует по паттерну) и пытается написать в каком коммите побеждено"
     )
     parser.add_argument(
+        '--test-chrome',
+        action='store_true',
+        help=""
+    )
+    parser.add_argument(
         '--update-bad-issues',
         type=int,
         action='append',
@@ -1681,6 +1708,7 @@ def parse_args():
     parser.set_defaults(current_parsers=False)
     parser.set_defaults(show_maintainers=False)
     parser.set_defaults(update_resolved=False)
+    parser.set_defaults(test_chrome=False)
     return parser.parse_args()
 
 
@@ -1751,6 +1779,9 @@ if __name__ == '__main__':
 
     if arguments.test_rh_api:
         print(cve_checker.redhat_cve_to_pkg_namelist(arguments.test_rh_api))
+        exit(0)
+    if arguments.test_chrome:
+        print(cve_checker.create_chromecve('https://chromereleases.googleblog.com/2024/07/stable-channel-update-for-desktop_23.html'))
         exit(0)
     if arguments.get_stable_hashes:
         search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
