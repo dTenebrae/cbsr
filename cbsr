@@ -347,16 +347,68 @@ class CveChecker:
             })
         return cve_dict
 
-    @staticmethod
-    def create_chromecve(url) -> []:
-        cve_list = []
+    def get_chrome_cves(self) -> []:
+        result = []
+
+        url = 'https://chromereleases.googleblog.com/search/label/Stable%20updates'
         resp = get_response(url,
                             bs=True,
                             parser='lxml',
                             headers=HEADERS,
                             )
+        if not resp:
+            return result
+
+        visited_urls = []
+        if os.path.exists('./visited_chrome_urls.log'):
+            # Загружаем список уже посещенных урлов
+            with open('./visited_chrome_urls.log', 'r') as url_file:
+                visited_urls = list(map(str.strip, url_file.readlines()))
+
+        for item in resp.find_all('h2', attrs={'class': 'title'}):
+            if item.text.strip() == 'Stable Channel Update for Desktop':
+                link = item.find('a').get('href')
+
+                if link in visited_urls:
+                    continue
+
+                result.extend(self.create_chromecve(link))
+                with open('./visited_chrome_urls.log', 'a') as url_file:
+                    url_file.write(f"{link}\n")
+
+        return result
+
+    @staticmethod
+    def create_chromecve(url) -> []:
+        cve_list = []
+
+        if not url:
+            return cve_list
+
+        resp = get_response(url,
+                            bs=True,
+                            parser='lxml',
+                            headers=HEADERS,
+                            )
+        if not resp:
+            return cve_list
+
         search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
         resp_body = resp.find('div', attrs={"class": "post-body"})
+        version_raw = next(iter(resp_body.find_all('p')))
+        version_raw_str = version_raw.text if version_raw else None
+
+        if not version_raw_str:
+            return cve_list
+
+        ver_re = re.compile(r"(?i)([\d\W]+)\s+for\s+linux")
+        ver_list = ver_re.findall(version_raw_str)
+
+        if not ver_list:
+            return cve_list
+
+        ver_str = ver_list[0].strip()
+
         for item in resp_body.find_all('p', attrs={'dir': 'ltr'}):
             raw_cve_data = search_re.findall(item.text)
             if not raw_cve_data:
@@ -364,10 +416,15 @@ class CveChecker:
             processed_cve_str = re.split('(Reported)', item.text.split(" ", 1)[1:][0])[0].strip()
             cve_list.append({
                 'id': processed_cve_str.split(':')[0].split()[1],
-                'severity': processed_cve_str.split(':')[0].split()[0],
+                'name': 'Chromium',
+                'impact': processed_cve_str.split(':')[0].split()[0],
                 'description': processed_cve_str.split(':')[1].strip(),
+                'fixed_in': ver_str,
+                'source': url,
             })
+
         return cve_list
+
 
     def get_mozilla_cves(self, n=3):
         """
@@ -958,6 +1015,13 @@ class CveChecker:
                     cve_id_list.append(cve['id'])
                     self.pkg_handler.pkgs_data[cve['name']]['cve_counter'] += 1
 
+        chrome_cves = self.get_chrome_cves()
+        for cve in chrome_cves:
+            if CHECK_REDMINE and not self.is_cve_exists_rest_api(cve['id'])[0]:
+                cve_data_list.append(cve)
+                cve_id_list.append(cve['id'])
+                self.pkg_handler.pkgs_data[cve['name']]['cve_counter'] += 1
+
         print('-' * 80)
         print(f"CVE for {len(self.pkg_handler.pkgs_data)} packages")
         print('-' * 80)
@@ -1015,9 +1079,10 @@ class CveChecker:
                 result += f"\nФайл(ы):\n\n"
                 for filename in item['files']:
                     result += f"* *{filename}*\n"
-        result += f"\nСсылки:\n\n"
-        for link in cve['links']:
-            result += f"* {link}\n"
+        if cve.get('links'):
+            result += f"\nСсылки:\n\n"
+            for link in cve['links']:
+                result += f"* {link}\n"
         if cve.get('source', ""):
             result += f"\nИсточник:\n\n"
             result += f"* {cve['source']}\n\n"
@@ -1674,11 +1739,6 @@ def parse_args():
         help="Проходит по созданным темам (фильтрует по паттерну) и пытается написать в каком коммите побеждено"
     )
     parser.add_argument(
-        '--test-chrome',
-        action='store_true',
-        help=""
-    )
-    parser.add_argument(
         '--update-bad-issues',
         type=int,
         action='append',
@@ -1689,6 +1749,11 @@ def parse_args():
         '--get-stable-hashes',
         type=str,
         help="Получить по номеру CVE хэши ML и стабильных веток и версии с которых исправлено"
+    )
+    parser.add_argument(
+        '--test-chrome',
+        type=str,
+        help=""
     )
     parser.add_argument(
         '--test-rh-api',
@@ -1708,7 +1773,6 @@ def parse_args():
     parser.set_defaults(current_parsers=False)
     parser.set_defaults(show_maintainers=False)
     parser.set_defaults(update_resolved=False)
-    parser.set_defaults(test_chrome=False)
     return parser.parse_args()
 
 
@@ -1781,7 +1845,8 @@ if __name__ == '__main__':
         print(cve_checker.redhat_cve_to_pkg_namelist(arguments.test_rh_api))
         exit(0)
     if arguments.test_chrome:
-        print(cve_checker.create_chromecve('https://chromereleases.googleblog.com/2024/07/stable-channel-update-for-desktop_23.html'))
+        # print(cve_checker.get_chrome_cves(arguments.test_chrome))
+        test_str = cve_checker.create_chromecve('https://chromereleases.googleblog.com/2024/07/stable-channel-update-for-desktop_23.html')
         exit(0)
     if arguments.get_stable_hashes:
         search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
