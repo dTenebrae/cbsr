@@ -380,10 +380,10 @@ class CveChecker:
 
     @staticmethod
     def create_chromecve(url) -> []:
-        cve_list = []
+        result = []
 
         if not url:
-            return cve_list
+            return result
 
         resp = get_response(url,
                             bs=True,
@@ -391,39 +391,32 @@ class CveChecker:
                             headers=HEADERS,
                             )
         if not resp:
-            return cve_list
+            return result
 
-        search_re = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
         resp_body = resp.find('div', attrs={"class": "post-body"})
-        version_raw = next(iter(resp_body.find_all('p')))
-        version_raw_str = version_raw.text if version_raw else None
 
-        if not version_raw_str:
-            return cve_list
+        ver_re = re.compile(r"(?i)\s+([\d\W]+)(\s+for\s+linux|\(linux\))")
+        cve_re = re.compile(r"(?i)\[[^\]]+\]\[\d+\] ([^\[]+?) Reported")
 
-        ver_re = re.compile(r"(?i)([\d\W]+)\s+for\s+linux")
-        ver_list = ver_re.findall(version_raw_str)
+        ver_list = ver_re.findall(resp_body.text)
+        cve_list = cve_re.findall(resp_body.text)
 
-        if not ver_list:
-            return cve_list
+        if not ver_list or not cve_list:
+            return result
 
-        ver_str = ver_list[0].strip()
+        ver_str = ver_list[0][0].strip()
 
-        for item in resp_body.find_all('p', attrs={'dir': 'ltr'}):
-            raw_cve_data = search_re.findall(item.text)
-            if not raw_cve_data:
-                continue
-            processed_cve_str = re.split('(Reported)', item.text.split(" ", 1)[1:][0])[0].strip()
-            cve_list.append({
-                'id': processed_cve_str.split(':')[0].split()[1],
+        for item in cve_list:
+            result.append({
+                'id': item.split(':')[0].split()[1],
                 'name': 'Chromium',
-                'impact': processed_cve_str.split(':')[0].split()[0],
-                'description': processed_cve_str.split(':')[1].strip(),
+                'impact': item.split(':')[0].split()[0],
+                'description': item.split(':')[1].strip(),
                 'fixed_in': ver_str,
                 'source': url,
             })
 
-        return cve_list
+        return result
 
 
     def get_mozilla_cves(self, n=3):
