@@ -380,7 +380,7 @@ class PkgHandler:
                 'check_func': self.is_yasm_issue,
                 'cve_counter': 0,
                 'stapel_name': 'yasm',
-                'nvr_list': [self.get_latest_rpm_data("yasm", tag[0], tag[1]).get('version', "")
+                'nvr_list': [self.get_latest_rpm_data("yasm", tag[0], tag[1], deep=False).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
                 'assigned_to': int(self.users_dict['alexey.rodionov']),
