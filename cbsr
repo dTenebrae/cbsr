@@ -1004,6 +1004,8 @@ class CveChecker:
         for moz_advisories in moz_cves:
             for cve in moz_advisories['cves']:
                 if CHECK_REDMINE and not self.is_cve_exists_rest_api(cve['id'])[0]:
+                    if not self.pkg_handler.pkgs_data.get(cve['name']):
+                        continue
                     cve_data_list.append(cve)
                     cve_id_list.append(cve['id'])
                     self.pkg_handler.pkgs_data[cve['name']]['cve_counter'] += 1
