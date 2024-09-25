@@ -2661,7 +2661,9 @@ class PkgHandler:
         check_urls = [
             'crbug.com',
             'chromereleases.googleblog.com',
-            'bugs.chromium.org'
+            'bugs.chromium.org',
+            'issues.chromium.org',
+            'chromium.org'
         ]
 
         for link in links:
