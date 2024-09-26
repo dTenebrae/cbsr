@@ -1244,6 +1244,16 @@ class PkgHandler:
                 'assigned_to': int(self.users_dict['vladislav.mitin']),
                 'watchers': None,
             },
+            'xen': {
+                'check_func': self.is_xen_issue,
+                'cve_counter': 0,
+                'stapel_name': 'xen',
+                'nvr_list': [self.get_latest_rpm_data("xen", tag[0], tag[1]).get('version', "")
+                             for tag in self.tags],
+                'check_patch': False,
+                'assigned_to': int(self.users_dict['oleg.sviridov']),
+                'watchers': None,
+            },
         }
 
     # Нижеследующие функции проверяют, относится ли уязвимость к соответствующему пакету
@@ -3133,5 +3143,21 @@ class PkgHandler:
 
         if cpe and (cpe[0].split(":")[4] == 'hdf5'):
             return IsXIssue.YES
+
+        return IsXIssue.MAYBE
+
+    @staticmethod
+    def is_xen_issue(desc, links, cpe) -> IsXIssue:
+        if 'xen' not in split_and_strip(desc):
+            return IsXIssue.NO
+
+        check_urls = [
+            'xenbits.xenproject.org',
+        ]
+
+        for link in links:
+            netloc = parse.urlparse(link).netloc
+            if netloc in check_urls:
+                return IsXIssue.YES
 
         return IsXIssue.MAYBE
