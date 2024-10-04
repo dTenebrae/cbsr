@@ -1320,6 +1320,46 @@ class CveChecker:
             else:
                 continue
 
+    def parse_html_report(self, html_path: str) -> dict:
+        """
+        Парсим простой html отчет, берем номер CVE и имя пакета, затем делаем запрос на редмайн
+        по поводу существования задачи, ее текущего статуса и закрыта ли она
+        """
+        result = {}
+        with open(html_path, 'r') as f:
+            soup = BeautifulSoup(f, 'lxml')
+
+        tr_list = soup.findAll('tr')
+        if not tr_list:
+            return result
+
+        for tr in tr_list[1:]:
+            td_list = tr.findAll('td')
+            if not td_list:
+                continue
+            cve_id = td_list[2].text
+            pkg_name = td_list[0].text
+            is_exist, links = self.is_cve_exists_rest_api(cve_id, return_link=True)
+            issue_dict = {}
+            for link in links:
+                issue = self.redmine.issue.get(link)
+                issue_dict[link] = {
+                    'url': issue.url,
+                    'status': issue.status.name,
+                    'is_closed': bool(issue.closed_on)
+                }
+
+            result.update({
+                cve_id: {
+                    'package': pkg_name,
+                    'is_exist': is_exist,
+                    'issues': issue_dict,
+                }
+            })
+            print(issue_dict)
+        with open('cve_report.json', 'w') as f:
+            json.dump(result, f, indent=1)
+
     def get_stable_hashes(self, resp, hash_flag=False):
         def check_hash(hash_str: str) -> (str, str):
             short_hsh = hash_str[:7] if len(hash_str) > 7 else ""
@@ -1746,6 +1786,12 @@ def parse_args():
         help="Получить по номеру CVE хэши ML и стабильных веток и версии с которых исправлено"
     )
     parser.add_argument(
+        '--parse-html-report',
+        type=str,
+        help="Спарсить отчет с CVE, получить информацию о созданных, открытых и закрытых задачах по ним. "
+             "На вход - путь к файлу"
+    )
+    parser.add_argument(
         '--test-chrome',
         type=str,
         help=""
@@ -1825,6 +1871,9 @@ if __name__ == '__main__':
         exit(0)
     if arguments.update_resolved:
         cve_checker.update_resolved_kernel_issues(no_filter_kver=True)
+        exit(0)
+    if arguments.parse_html_report:
+        cve_checker.parse_html_report(arguments.parse_html_report)
         exit(0)
 
     if UPDATE_ISSUES_ARGS:
