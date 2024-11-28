@@ -393,7 +393,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("emacs", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['anton.savin']),
+                'assigned_to': int(self.users_dict['maxim.noskov']),
                 'watchers': None,
             },
             'libreswan': {
@@ -574,7 +574,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("libssh", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['anton.savin']),
+                'assigned_to': int(self.users_dict['pavel.levin']),
                 'watchers': None,
             },
             'c-ares': {
@@ -650,7 +650,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("openldap", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['anton.savin']),
+                'assigned_to': int(self.users_dict['pavel.levin']),
                 'watchers': None,
             },
             'Netty': {
@@ -790,7 +790,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("nasm", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['anton.savin']),
+                'assigned_to': int(self.users_dict['pavel.levin']),
                 'watchers': None,
             },
             'Poppler': {
@@ -841,7 +841,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("salt", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['anton.savin']),
+                'assigned_to': int(self.users_dict['denis.karpov']),
                 'watchers': None,
             },
             'Ruby': {
@@ -991,7 +991,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("erlang", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['anton.savin']),
+                'assigned_to': int(self.users_dict['vladlen.murylyov']),
                 'watchers': None,
             },
             'Chromium': {
@@ -1031,7 +1031,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("cri-o", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['anton.savin']),
+                'assigned_to': int(self.users_dict['vadim.karyaev']),
                 'watchers': None,
             },
             'libde265': {
@@ -1131,7 +1131,7 @@ class PkgHandler:
                 'nvr_list': [self.get_latest_rpm_data("tinyxml", tag[0], tag[1]).get('version', "")
                              for tag in self.tags],
                 'check_patch': False,
-                'assigned_to': int(self.users_dict['anton.savin']),
+                'assigned_to': int(self.users_dict['pavel.levin']),
                 'watchers': None,
             },
             'Apache': {
